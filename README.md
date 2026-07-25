@@ -1,134 +1,96 @@
-# Fly now, explain later. ✈️
+# Soar (study clone) ✈️
 
-A flight search engine that hunts **real fares** across Google Flights, Skiplagged
-(hidden-city), Aviasales, airline sites, and a **browser agent** driving real
-Chrome — then badges anything **cheaper than Google Flights**. Optional in-site
-booking via Duffel (no redirect).
+A pixel-close, feature-complete clone of [flysoar.ai](https://flysoar.ai)
+built end-to-end on the **Duffel test API** — live streaming search, metro
+"Any airport" fan-out, a price-heatmap date picker, flight details with
+seat maps / bags / fare rules, OTP sign-in, checkout with sandbox payment,
+order management with cancellations, and price watches.
 
-Built with Next.js 16 (App Router), TypeScript, Tailwind v4, the Vercel AI SDK
-(Gemini), and Stagehand.
+> **Private study project.** Recreated for learning; the Soar branding
+> belongs to its owners. Run it locally — don't deploy it publicly.
+> Test mode only: sandbox fares, unlimited test balance, no real tickets.
+
+Built with Next.js 16 (App Router, Turbopack), TypeScript, Tailwind v4,
+better-sqlite3, and the official `@duffel/api` SDK. No scrapers, no other
+data providers.
 
 ## Quick start
 
 ```bash
 npm install
-cp .env.local.example .env.local   # fill in whatever keys you have (or none)
-npm run dev                        # http://localhost:3000
+cp .env.local.example .env    # set DUFFEL_API_TOKEN=duffel_test_...
+node scripts/fetch-airports.mjs   # regenerate airport/metro datasets (optional; committed)
+npm run dev
 ```
 
-**The app works with zero keys**: Google data comes from the free
-`fast-flights-ts` RPC path and Skiplagged's public API (routed through your
-local Chrome when Cloudflare blocks plain fetch). Each key you add lights up
-another source — the landing page footer shows what's active.
+Open http://localhost:3000, search something like `LHR → JFK`, and sign in
+with any phone/email — the 6-digit code prints in the dev-server console
+and autofills in development.
 
-## Keys (all free tiers, see .env.local.example)
+## How it works
 
-| Key | Unlocks | Where |
-|---|---|---|
-| `SERPAPI_KEY` | Primary Google Flights data, 250 searches/mo free | [serpapi.com](https://serpapi.com/users/sign_up) |
-| `TRAVELPAYOUTS_TOKEN` | Aviasales cached-fare context | [travelpayouts.com](https://www.travelpayouts.com/) → Profile → API token |
-| `GOOGLE_GENERATIVE_AI_API_KEY` | Browser-agent LLM extraction (Trip.com, Google fallback) + natural-language search | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
-| `DUFFEL_API_TOKEN` | **In-site booking** (checkout without redirect) | [duffel.com](https://duffel.com) — `duffel_test_…` demos instantly; real tickets need KYC + live token + topped-up balance |
-| `RAPIDAPI_KEY` + `ENABLE_SKYSCANNER=true` | Skyscanner cross-check (~100 req/mo) | rapidapi.com (sky-scrapper) |
-
-## How it beats Google Flights
-
-Google is the **baseline, not the ceiling**. Every search streams two tiers
-over one SSE connection (`/api/search`):
-
-- **Tier 1 (seconds):** SerpAPI Google Flights (`deep_search`, browser-identical)
-  or the zero-key `fast-flights-ts` RPC → sets the *"Google price"* baseline.
-  In parallel: Skiplagged (hidden-city fares — the structural way to beat listed
-  prices), Travelpayouts cache, optional Skyscanner, Duffel.
-- **Tier 2 (10–30s):** the browser agent (Stagehand v3 LOCAL + your real Chrome
-  + Gemini) scrapes Frontier direct (GoWild fares) and Trip.com (promo
-  undercuts), streaming results in as they land.
-
-Anything at least $1 below the baseline gets the green
-**"Cheaper than Google Flights · save $X"** badge. Hidden-city fares carry an
-amber warning (carry-on only, ticketed beyond your stop, airline-ToS risk) and
-are rank-penalized so they never masquerade as normal fares.
-
-Results dedupe across sources on carrier + origin + departure-minute; the card
-shows every agreeing source ("via Google · Skiplagged") and keeps the cheapest
-price.
-
-Real examples from verification (July 2026): LGA→ORD Google $109 vs
-hidden-city **$89 (save $20)**; DEN→MCO Google $185 vs Skiplagged **$155
-(save $30)**.
-
-**Two more cheap-fare levers** (both modeled on Soar's approach):
-- **Split-ticketing** — for round trips, prices the outbound and return as two
-  independent one-ways and combines the cheapest of each *across sources*
-  (e.g. outbound on Skiplagged, return on Google). When the sum beats the best
-  round-trip it's surfaced as a "Split ticket · save $X" card with two Book
-  buttons, plus a caveat (two bookings, no through-protection). Wins are real
-  but data-dependent — they need ≥2 live price sources.
-- **Price calendar** — a cheapest-fare-by-day strip (Travelpayouts, cached)
-  under the search bar; click a day to shift the search, round-trip length
-  preserved. Hides itself without a Travelpayouts token.
-
-## Booking
-
-- Offers from **Duffel** show *"Instant booking — no redirect"* → `/book/[offerId]`:
-  passenger details + confirm, paid from your **prepaid Duffel balance** (card
-  data never touches this app). Test tokens produce clearly-labeled sandbox
-  fares that can't earn badges or mix with real prices.
-- Everything else deep-links to the source (Google Flights, Skiplagged, airline).
-
-## Architecture
-
-```
-src/lib/types.ts          the FlightOffer contract every source maps into
-src/lib/orchestrator.ts   two-tier fan-out, baseline chain, budgets (180s wall)
-src/lib/providers/*       serpapi · fast-flights · travelpayouts · skiplagged ·
-                          skyscanner-rapidapi · duffel  (+ provider.ts guard:
-                          timeout, cache, circuit breaker, status normalization)
-src/lib/agent/*           Stagehand pool (2 real-Chrome instances, idle shutdown),
-                          zod extraction schemas, targets: frontier · trip-com ·
-                          google-fallback · navitaire (Allegiant, experimental)
-src/app/api/search        the SSE stream
-src/app/api/book*         Duffel offer refresh + order creation
-src/hooks/useFlightSearch client stream consumer: merge → dedupe → live re-rank
-```
-
-- **Cache:** memory + `.cache/search/` files (survives dev reloads — protects
-  the SerpAPI quota). TTLs: SerpAPI 1h, Travelpayouts 24h, Skiplagged/agent 20m.
-- **Failure model:** a provider can time out, get blocked, or hit a CAPTCHA and
-  the stream never breaks — it becomes a status tick in the UI. Two consecutive
-  failures open a 30-minute circuit breaker.
-- **Ranking:** Cheapest (price), Fastest (duration), Best
-  (`0.55·price + 0.30·duration + 0.15·stops` normalized min→P90, with penalties
-  for hidden-city/cached/return-pending/test fares).
+- **Search** — `GET /api/search/stream` (SSE). One Duffel **Batch Offer
+  Request** per airport pair, long-polled; each batch streams `created` /
+  `batch` / `offer` events. Metro picks ("Tokyo (any)") fan out to one
+  request per member airport (capped at 4). Falls back to plain offer
+  requests automatically (`DUFFEL_BATCH=0` forces it). 60s result cache
+  absorbs refreshes; offers stay bookable because Duffel ids expire fast.
+- **Results** — offers dedupe on Duffel slice comparison keys, re-rank live
+  (Best = price/duration/stops blend; Cheapest; Fastest), filter by stops /
+  airlines+alliances / dual-handle time ranges, paginate client-side.
+  Displayed prices are `$1` under the fare ("Soar Undercut" — the payment
+  always uses the exact Duffel total).
+- **Details** — fresh offer + `available_services`; fare-rules / refund /
+  price-breakdown popovers, per-segment timelines with layovers and cabin
+  amenities (Duffel data, aircraft-table fallback), bags steppers, Duffel
+  **seat maps** (reliable on Duffel Airways `ZZ`), Protect Flight (5%,
+  $19–$149), share link, Watch.
+- **Auth** — phone/email OTP (printed to console in dev), sha256 session
+  tokens in SQLite, 30-day sliding cookie.
+- **Checkout** — passenger forms (passport block when the offer requires
+  identity documents), seats/bags re-priced server-side from the fresh
+  offer, balance payment, order + offer snapshot stored in `.data/soar.db`.
+- **My Flights** — upcoming/past orders, order detail with itinerary,
+  cancellation via Duffel quote → confirm (Protect bookings message the
+  full-minus-fee refund), price watches with visit-triggered re-pricing.
+- **Calendar** — every search upserts cheapest-per-day observations
+  (round trips halved per direction); the date modal tints days
+  cheap/medium/expensive vs the rolling average. `CALENDAR_FILL=1` lets
+  sparse routes backfill with a few capped one-way searches.
 
 ## Useful commands
 
 ```bash
-node scripts/smoke.mjs            # stream 3 canned routes, print provider table
-node scripts/fetch-airports.mjs   # regenerate src/data/airports.json (OurAirports)
-MOCK_FIXTURES=1 npm run dev       # replay .cache/fixtures/* (UI work, zero quota)
+npm run dev          # dev server (Turbopack)
+npm run typecheck    # tsc --noEmit
+npm run lint         # eslint
+node scripts/smoke.mjs [base]          # stream smoke (2 routes)
+node scripts/smoke.mjs --book [base]   # + full sandbox booking incl. seat,
+                                       #   bag, protect, then cancel (refuses
+                                       #   live-mode offers)
 ```
 
-Env toggles: `ENABLE_BROWSER_AGENT=false` (kill switch) ·
-`AGENT_TARGETS=frontier,trip-com[,navitaire]` · `AGENT_HEADLESS=true` ·
-`SKIPLAGGED_ENABLED=false` · `AGENT_MODEL=google/gemini-2.5-flash`.
+## Duffel test-mode notes
 
-## Dead APIs — do not resurrect
+- Sandbox carriers: Duffel Airways (`ZZ`) plus airline sandboxes; prices
+  are fabricated.
+- Seat maps: dependable on `ZZ` only — the UI shows a friendly empty state
+  elsewhere.
+- `available_services` (bags) often exist on `ZZ`, rarely elsewhere.
+- Test balance is unlimited; cancellations work and may quote full refunds.
+- Batch offer requests expire ~60s after creation — the server polls them
+  immediately, never lazily.
 
-Verified July 2026: **Amadeus Self-Service was decommissioned 2026-07-17**
-(DNS gone; the `amadeus` npm package is stale but not flagged — never install
-it). Kiwi Tequila is invitation-only. Official Skyscanner API is partner-only.
-`playwright-extra`/stealth is dead and detected — this project uses
-**patchright** instead. Spirit Airlines ceased operations May 2026.
+## Data
 
-## Honest limitations
+`src/data/airports.json` (3.2k airports with coords) and
+`src/data/cities.json` (86 metro groups, curated majors + municipality
+grouping) are generated by `scripts/fetch-airports.mjs` from the
+OurAirports public-domain dataset. Alliances and the aircraft-amenities
+fallback are small hand-maintained tables in `src/data/`.
 
-- Hidden-city fares: real but risky (no checked bags, one-way use, airlines
-  prohibit it in their ToS) — always labeled, never auto-picked as "Best".
-- Skiplagged/Trip.com/Google scraping is unofficial; blocks surface as muted
-  status ticks, never crashes. Home/residential IP works best (that's why the
-  agent runs your real local Chrome).
-- Duffel test mode shows fake sandbox fares — labeled amber, excluded from
-  price comparisons. Real ticketing requires Duffel KYC verification.
-- This is a local dev app: the browser agent needs a real Chrome install and
-  won't deploy to serverless (Chromium ≫ function size limits).
+## Persistence
+
+Everything lives in `.data/soar.db` (SQLite, WAL): users, sessions, OTP
+codes, orders (+offer snapshots), watches, price observations. Delete the
+directory to reset the world.

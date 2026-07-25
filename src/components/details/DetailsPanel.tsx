@@ -585,7 +585,7 @@ function Overlay({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-[60] overflow-y-auto bg-[#050b18]/80 backdrop-blur-sm">
+    <div role="dialog" aria-modal="true" aria-label="Flight details" className="fixed inset-0 z-[60] overflow-y-auto bg-[#050b18]/80 backdrop-blur-sm">
       <div className="mx-auto w-full max-w-4xl px-6 pt-6 pb-10">
         <button
           type="button"

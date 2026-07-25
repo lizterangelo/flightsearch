@@ -278,7 +278,7 @@ export default function DatePickerModal({
         className="fixed inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-3xl rounded-3xl border border-card-border bg-[#0a1122] p-7 shadow-2xl shadow-black/60">
+      <div role="dialog" aria-modal="true" aria-label="Choose dates" className="relative w-full max-w-3xl rounded-3xl border border-card-border bg-[#0a1122] p-7 shadow-2xl shadow-black/60">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div className="text-2xl font-bold text-white">{header}</div>
           <div className="flex rounded-full border border-card-border bg-pill/80 p-1 text-sm font-medium">

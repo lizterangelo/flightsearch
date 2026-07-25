@@ -162,7 +162,7 @@ export default function AuthModal({
         className="fixed inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-card-border bg-[#0a1122] shadow-2xl shadow-black/60">
+      <div role="dialog" aria-modal="true" aria-label="Sign in" className="relative w-full max-w-md overflow-hidden rounded-3xl border border-card-border bg-[#0a1122] shadow-2xl shadow-black/60">
         <button
           type="button"
           onClick={onClose}
