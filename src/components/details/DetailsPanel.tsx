@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import AuthModal from "@/components/auth/AuthModal";
+import { useMe } from "@/components/auth/MeProvider";
 import { useToast } from "@/components/ui/Toast";
 import Popover from "@/components/ui/Popover";
 import { formatDuration } from "@/lib/format";
@@ -66,12 +68,14 @@ export default function DetailsPanel({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const { me } = useMe();
 
   const [fetched, setFetched] = useState<OfferResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expired, setExpired] = useState(false);
   const [bagQty, setBagQty] = useState<Map<string, number>>(() => new Map());
   const [protect, setProtect] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
 
   // Always refetch for services/current price; streamed offer renders
   // instantly in the meantime.
@@ -452,7 +456,13 @@ export default function DetailsPanel({
 
           <button
             type="button"
-            onClick={() => toast("Sign in to pick seats — coming right up")}
+            onClick={() => {
+              if (!me) {
+                setAuthOpen(true);
+                return;
+              }
+              toast("Pick your seat at checkout");
+            }}
             className="flex cursor-pointer items-center gap-2 rounded-full border border-card-border bg-pill/80 px-4 py-2.5 text-sm font-medium text-slate-200 transition hover:text-white"
           >
             Select seat <span className="text-accent-bright">+</span>
@@ -501,14 +511,23 @@ export default function DetailsPanel({
               />
             </svg>
           </button>
-          <a
-            href={bookHref()}
+          <button
+            type="button"
+            onClick={() => {
+              if (!me) {
+                setAuthOpen(true);
+                return;
+              }
+              router.push(bookHref());
+            }}
             className="cursor-pointer rounded-full bg-accent px-8 py-3 font-semibold text-white shadow-[0_0_24px_rgba(46,107,255,0.5)] transition hover:brightness-110"
           >
             Book Flight
-          </a>
+          </button>
         </div>
       </div>
+
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
     </Overlay>
   );
 }

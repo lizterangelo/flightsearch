@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { MeProvider } from "@/components/auth/MeProvider";
 import Header from "@/components/Header";
 import NightSky from "@/components/NightSky";
 import { ToastProvider } from "@/components/ui/Toast";
@@ -34,10 +35,12 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <NightSky />
         <ToastProvider>
-          <div className="relative z-10 flex min-h-screen flex-col">
-            <Header />
-            {children}
-          </div>
+          <MeProvider>
+            <div className="relative z-10 flex min-h-screen flex-col">
+              <Header />
+              {children}
+            </div>
+          </MeProvider>
         </ToastProvider>
       </body>
     </html>
