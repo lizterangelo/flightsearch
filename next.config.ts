@@ -1,15 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: [
-    "@browserbasehq/stagehand",
-    "patchright-core",
-    "playwright-core",
-  ],
   images: {
     remotePatterns: [
-      { protocol: "https", hostname: "www.gstatic.com" },
-      { protocol: "https", hostname: "pics.avs.io" },
+      // Duffel-hosted airline logos.
+      { protocol: "https", hostname: "assets.duffel.com" },
     ],
   },
 };

@@ -1,57 +1,61 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { mergeOffer } from "@/lib/dedupe";
 import { sortOffers, type SortMode } from "@/lib/rank";
 import { parseSSEStream } from "@/lib/sse";
-import type {
-  FlightOffer,
-  ProviderId,
-  ProviderMeta,
-  SearchParams,
-  SSEEvent,
-} from "@/lib/types";
-import { toQueryString } from "@/lib/types";
+import type { FlightOffer, SearchQuery, StreamEvent } from "@/lib/types";
+import { searchQueryKey, toQueryString } from "@/lib/types";
+
+export interface RequestProgress {
+  origin: string;
+  destination: string;
+  totalBatches: number;
+  remainingBatches: number;
+  status: "streaming" | "ok" | "empty" | "error" | "timeout";
+}
 
 export interface FlightSearchState {
-  /** Deduped offers, sorted by the current sort mode, re-ranked per batch. */
+  /** Deduped offers, sorted by the current sort mode, re-ranked per event. */
   offers: FlightOffer[];
-  providers: ProviderMeta[];
-  baseline: { totalUSD: number; perTravelerUSD: number; source: ProviderId } | null;
+  /** One entry per Duffel offer request (metro searches fan out to several). */
+  requests: Map<string, RequestProgress>;
   isStreaming: boolean;
-  /** Fatal error (e.g. invalid params) — provider-level errors live in `providers`. */
+  /** Fatal error (invalid params / HTTP failure) — not per-request errors. */
   error: string | null;
   elapsedMs: number | null;
+  liveMode: boolean;
 }
 
 export function useFlightSearch(
-  params: SearchParams | null,
+  query: SearchQuery | null,
   sortMode: SortMode,
 ): FlightSearchState {
   const [offersByKey, setOffersByKey] = useState<Map<string, FlightOffer>>(
     () => new Map(),
   );
-  const [providers, setProviders] = useState<ProviderMeta[]>([]);
-  const [baseline, setBaseline] =
-    useState<FlightSearchState["baseline"]>(null);
+  const [requests, setRequests] = useState<Map<string, RequestProgress>>(
+    () => new Map(),
+  );
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
+  const [liveMode, setLiveMode] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
-  const queryString = params ? toQueryString(params) : null;
+  const key = query ? searchQueryKey(query) : null;
+  const queryString = query ? toQueryString(query) : null;
 
   // Reset synchronously when the search changes (render-time derived state —
   // avoids a flash of stale results before the effect runs).
-  const [lastQuery, setLastQuery] = useState<string | null>(null);
-  if (queryString !== lastQuery) {
-    setLastQuery(queryString);
+  const [lastKey, setLastKey] = useState<string | null>(null);
+  if (key !== lastKey) {
+    setLastKey(key);
     setOffersByKey(new Map());
-    setProviders([]);
-    setBaseline(null);
+    setRequests(new Map());
     setError(null);
     setElapsedMs(null);
-    setIsStreaming(Boolean(queryString));
+    setLiveMode(false);
+    setIsStreaming(Boolean(key));
   }
 
   useEffect(() => {
@@ -61,38 +65,59 @@ export function useFlightSearch(
     const controller = new AbortController();
     abortRef.current = controller;
 
-    const apply = (event: SSEEvent) => {
+    const apply = (event: StreamEvent) => {
       switch (event.type) {
-        case "providers":
-          setProviders(event.providers);
-          break;
-        case "provider_added":
-          setProviders((prev) =>
-            prev.some((p) => p.id === event.provider.id)
-              ? prev
-              : [...prev, event.provider],
-          );
-          break;
-        case "results":
-          setOffersByKey((prev) => {
+        case "created":
+          setLiveMode((prev) => prev || event.liveMode);
+          setRequests((prev) => {
             const next = new Map(prev);
-            for (const offer of event.offers) mergeOffer(next, offer);
+            next.set(event.requestId, {
+              origin: event.origin,
+              destination: event.destination,
+              totalBatches: event.totalBatches,
+              remainingBatches: event.remainingBatches,
+              status: "streaming",
+            });
             return next;
           });
           break;
-        case "baseline":
-          setBaseline({
-            totalUSD: event.totalUSD,
-            perTravelerUSD: event.perTravelerUSD,
-            source: event.source,
+        case "batch":
+          setRequests((prev) => {
+            const existing = prev.get(event.requestId);
+            if (!existing) return prev;
+            const next = new Map(prev);
+            next.set(event.requestId, {
+              ...existing,
+              remainingBatches: event.remainingBatches,
+            });
+            return next;
           });
           break;
-        case "provider_done":
-          setProviders((prev) =>
-            prev.map((p) =>
-              p.id === event.provider ? { ...p, status: event.status } : p,
-            ),
-          );
+        case "offer":
+          setOffersByKey((prev) => {
+            const existing = prev.get(event.offer.dedupeKey);
+            // Keep the cheaper offer for an equivalent itinerary.
+            if (existing && existing.totalUSD <= event.offer.totalUSD) {
+              return prev;
+            }
+            const next = new Map(prev);
+            next.set(event.offer.dedupeKey, event.offer);
+            return next;
+          });
+          break;
+        case "request_done":
+          setRequests((prev) => {
+            const existing = prev.get(event.requestId);
+            const next = new Map(prev);
+            next.set(event.requestId, {
+              origin: existing?.origin ?? "",
+              destination: existing?.destination ?? "",
+              totalBatches: existing?.totalBatches ?? 0,
+              remainingBatches: 0,
+              status: event.status,
+            });
+            return next;
+          });
           break;
         case "done":
           setElapsedMs(event.elapsedMs);
@@ -102,7 +127,7 @@ export function useFlightSearch(
 
     (async () => {
       try {
-        const res = await fetch(`/api/search?${queryString}`, {
+        const res = await fetch(`/api/search/stream?${queryString}`, {
           signal: controller.signal,
         });
         if (!res.ok) {
@@ -133,5 +158,5 @@ export function useFlightSearch(
     [offersByKey, sortMode],
   );
 
-  return { offers, providers, baseline, isStreaming, error, elapsedMs };
+  return { offers, requests, isStreaming, error, elapsedMs, liveMode };
 }

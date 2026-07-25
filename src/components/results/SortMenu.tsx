@@ -1,6 +1,5 @@
 "use client";
 
-import { formatMoney } from "@/lib/currency";
 import { formatDuration } from "@/lib/format";
 import { sortOffers, type SortMode } from "@/lib/rank";
 import { totalDurationMinutes, type FlightOffer } from "@/lib/types";
@@ -112,11 +111,8 @@ export default function SortMenu({
                     <span className="block font-medium">{label}</span>
                     {top && (
                       <span className="block text-xs text-muted">
-                        {formatMoney(
-                          top.price.perTraveler,
-                          top.price.currency,
-                        )}{" "}
-                        · {formatDuration(totalDurationMinutes(top))}
+                        ${Math.round(top.displayUSD).toLocaleString("en-US")} ·{" "}
+                        {formatDuration(totalDurationMinutes(top))}
                       </span>
                     )}
                   </span>

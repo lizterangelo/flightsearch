@@ -1,10 +1,10 @@
-import type { SSEEvent } from "./types";
+import type { StreamEvent } from "./types";
 
 // TextEncoder is stateless — share one across all events/streams.
 const encoder = new TextEncoder();
 
 /** Server side: encode one event for a text/event-stream response. */
-export function encodeEvent(event: SSEEvent): Uint8Array {
+export function encodeEvent(event: StreamEvent): Uint8Array {
   return encoder.encode(
     `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`,
   );
@@ -16,7 +16,7 @@ export function encodeEvent(event: SSEEvent): Uint8Array {
  */
 export async function* parseSSEStream(
   body: ReadableStream<Uint8Array>,
-): AsyncGenerator<SSEEvent> {
+): AsyncGenerator<StreamEvent> {
   // TS lib typing quirk: TextDecoderStream's writable side is BufferSource,
   // which doesn't structurally match ReadableStream<Uint8Array>.
   const reader = body
@@ -42,7 +42,7 @@ export async function* parseSSEStream(
           .find((line) => line.startsWith("data: "));
         if (!dataLine) continue;
         try {
-          yield JSON.parse(dataLine.slice(6)) as SSEEvent;
+          yield JSON.parse(dataLine.slice(6)) as StreamEvent;
         } catch {
           // Malformed frame — skip rather than kill the stream.
         }

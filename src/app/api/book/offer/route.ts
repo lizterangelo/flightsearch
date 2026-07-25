@@ -3,7 +3,7 @@ import {
   duffelClient,
   duffelErrorMessage,
   duffelTestMode,
-} from "@/lib/providers/duffel";
+} from "@/lib/duffel/client";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

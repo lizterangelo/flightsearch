@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   duffelClient,
   duffelErrorMessage,
-} from "@/lib/providers/duffel";
+} from "@/lib/duffel/client";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

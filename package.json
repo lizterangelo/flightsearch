@@ -6,20 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@ai-sdk/google": "^4.0.18",
-    "@browserbasehq/stagehand": "^3.7.0",
     "@duffel/api": "^4.28.0",
-    "ai": "^7.0.31",
-    "fast-flights-ts": "4.1.0",
     "next": "16.2.10",
-    "patchright-core": "^1.61.1",
-    "playwright-core": "^1.61.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "serpapi": "^2.2.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {

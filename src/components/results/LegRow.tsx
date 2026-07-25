@@ -1,30 +1,30 @@
 import { formatDuration, formatTime } from "@/lib/format";
-import type { FlightLeg } from "@/lib/types";
+import type { OfferSlice } from "@/lib/types";
 
 /**
- * One bound: depart time/code — duration line with Direct/stops — arrive
- * time/code (+1 when overnight). Matches the mock's timeline styling.
+ * One slice: depart time/code — duration line with Direct/stops — arrive
+ * time/code (+N when the arrival lands on a later day).
  */
-export default function LegRow({ leg }: { leg: FlightLeg }) {
-  const direct = leg.stops === 0;
+export default function LegRow({ slice }: { slice: OfferSlice }) {
+  const direct = slice.stops === 0;
   const stopsLabel = direct
     ? "Direct"
-    : `${leg.stops} stop${leg.stops > 1 ? "s" : ""}${
-        leg.stopAirports.length ? ` ${leg.stopAirports.join(", ")}` : ""
+    : `${slice.stops} stop${slice.stops > 1 ? "s" : ""}${
+        slice.stopAirports.length ? ` ${slice.stopAirports.join(", ")}` : ""
       }`;
 
   return (
     <div className="flex items-center gap-5">
       <div className="w-24 text-right">
         <div className="text-[26px] leading-8 font-semibold text-white">
-          {formatTime(leg.departure)}
+          {formatTime(slice.departure)}
         </div>
-        <div className="text-sm text-muted">{leg.origin}</div>
+        <div className="text-sm text-muted">{slice.origin}</div>
       </div>
 
       <div className="relative flex-1 py-4">
         <div className="mb-1.5 text-center text-xs text-muted">
-          {formatDuration(leg.durationMinutes)}
+          {formatDuration(slice.durationMinutes)}
         </div>
         <div className="relative h-px bg-white/20">
           {!direct && (
@@ -52,12 +52,14 @@ export default function LegRow({ leg }: { leg: FlightLeg }) {
 
       <div className="w-24">
         <div className="text-[26px] leading-8 font-semibold text-white">
-          {formatTime(leg.arrival)}
-          {leg.overnight && (
-            <sup className="ml-0.5 text-xs font-semibold text-stop">+1</sup>
+          {formatTime(slice.arrival)}
+          {slice.overnightDays > 0 && (
+            <sup className="ml-0.5 text-xs font-semibold text-stop">
+              +{slice.overnightDays}
+            </sup>
           )}
         </div>
-        <div className="text-sm text-muted">{leg.destination}</div>
+        <div className="text-sm text-muted">{slice.destination}</div>
       </div>
     </div>
   );

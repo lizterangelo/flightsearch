@@ -9,27 +9,28 @@ import FilterBar, {
   type Filters,
 } from "@/components/results/FilterBar";
 import FlightCard from "@/components/results/FlightCard";
-import PriceCalendar from "@/components/results/PriceCalendar";
 import ResultsHeader from "@/components/results/ResultsHeader";
 import SkeletonCard from "@/components/results/SkeletonCard";
 import SortMenu from "@/components/results/SortMenu";
 import SearchBar from "@/components/search/SearchBar";
 import { useFlightSearch } from "@/hooks/useFlightSearch";
 import type { SortMode } from "@/lib/rank";
-import { parseSearchParams } from "@/lib/types";
+import { parseSearchQuery, totalPassengers } from "@/lib/types";
+
+const PAGE_SIZE = 15;
 
 function ResultsContent() {
   const rawParams = useSearchParams();
 
-  const { params, paramsError } = useMemo(() => {
+  const { query, paramsError } = useMemo(() => {
     try {
       return {
-        params: parseSearchParams(new URLSearchParams(rawParams.toString())),
+        query: parseSearchQuery(new URLSearchParams(rawParams.toString())),
         paramsError: null as string | null,
       };
     } catch (err) {
       return {
-        params: null,
+        query: null,
         paramsError: err instanceof Error ? err.message : "Invalid search",
       };
     }
@@ -37,15 +38,14 @@ function ResultsContent() {
 
   const [sortMode, setSortMode] = useState<SortMode>("best");
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
-  const { offers, providers, baseline, isStreaming, error } = useFlightSearch(
-    params,
-    sortMode,
-  );
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const { offers, isStreaming, error } = useFlightSearch(query, sortMode);
 
   const filtered = useMemo(
     () => applyFilters(offers, filters),
     [offers, filters],
   );
+  const visible = filtered.slice(0, visibleCount);
 
   if (paramsError) {
     return (
@@ -62,9 +62,7 @@ function ResultsContent() {
   }
 
   const showSkeletons =
-    isStreaming && filtered.length < 3
-      ? Math.max(1, 5 - filtered.length)
-      : 0;
+    isStreaming && filtered.length < 3 ? Math.max(1, 5 - filtered.length) : 0;
 
   return (
     <main className="mx-auto w-full max-w-6xl px-6 pb-24">
@@ -79,7 +77,7 @@ function ResultsContent() {
             </svg>
           </Link>
           <div className="flex-1">
-            <SearchBar compact initial={params ?? undefined} />
+            <SearchBar compact initial={query ?? undefined} />
           </div>
         </div>
       </div>
@@ -93,30 +91,28 @@ function ResultsContent() {
           <div className="mt-2 mb-5 flex flex-wrap items-center justify-between gap-3">
             <ResultsHeader
               count={filtered.length}
-              adults={params?.adults ?? 1}
-              providers={providers}
+              passengerCount={query ? totalPassengers(query.passengers) : 1}
               isStreaming={isStreaming}
             />
-          </div>
-
-          {params && <PriceCalendar params={params} />}
-
-          <div className="mb-5 flex flex-wrap items-center justify-end gap-2.5">
-            <FilterBar offers={offers} filters={filters} onChange={setFilters} />
-            <SortMenu
-              offers={filtered}
-              sortMode={sortMode}
-              onChange={setSortMode}
-            />
+            <div className="flex flex-wrap items-center gap-2.5">
+              <FilterBar
+                offers={offers}
+                filters={filters}
+                onChange={setFilters}
+              />
+              <SortMenu
+                offers={filtered}
+                sortMode={sortMode}
+                onChange={setSortMode}
+              />
+            </div>
           </div>
 
           <div className="space-y-4">
-            {filtered.map((offer, i) => (
+            {visible.map((offer, i) => (
               <FlightCard
                 key={offer.dedupeKey}
                 offer={offer}
-                adults={params?.adults ?? 1}
-                baselineUSD={baseline?.totalUSD ?? null}
                 isBest={sortMode === "best" && i === 0 && !isStreaming}
               />
             ))}
@@ -124,6 +120,18 @@ function ResultsContent() {
               <SkeletonCard key={`skeleton-${i}`} />
             ))}
           </div>
+
+          {filtered.length > visibleCount && (
+            <div className="mt-8 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
+                className="cursor-pointer rounded-full border border-card-border bg-pill/80 px-6 py-3 text-sm font-semibold text-slate-200 transition hover:bg-pill"
+              >
+                Load more flights
+              </button>
+            </div>
+          )}
 
           {!isStreaming && filtered.length === 0 && (
             <div className="py-16 text-center text-slate-300">

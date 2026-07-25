@@ -20,39 +20,25 @@ function percentile(sorted: number[], p: number): number {
 
 /**
  * Best score (lower = better):
- *   0.55·priceN + 0.30·durN + 0.15·(min(stops,2)/2) + penalties
+ *   0.55·priceN + 0.30·durN + 0.15·(min(stops,2)/2)
  * priceN/durN normalized min→P90 of the *current* result set (P90 not max so
- * one outlier doesn't flatten the scale). Penalties: +0.15 hidden-city,
- * +0.05 cached freshness, +0.05 returnLegPending.
+ * one outlier doesn't flatten the scale).
  */
 export function scoreBest(
   offer: FlightOffer,
   ctx: { minPrice: number; p90Price: number; minDur: number; p90Dur: number },
 ): number {
-  const price = offer.price.totalUSD;
+  const price = offer.displayUSD;
   const dur = totalDurationMinutes(offer);
   const priceSpan = Math.max(1, ctx.p90Price - ctx.minPrice);
   const durSpan = Math.max(1, ctx.p90Dur - ctx.minDur);
 
-  let score =
+  return (
     0.55 * clamp01((price - ctx.minPrice) / priceSpan) +
     0.3 * clamp01((dur - ctx.minDur) / durSpan) +
-    0.15 * (Math.min(totalStops(offer), 2) / 2);
-
-  if (offer.freshness === "hidden-city") score += 0.15;
-  if (offer.freshness === "cached") score += 0.05;
-  if (offer.returnLegPending) score += 0.05;
-  // Split tickets are two bookings with no through-protection — a slight
-  // demerit in Best, though they still win outright on Cheapest.
-  if (offer.splitTicket) score += 0.08;
-  // Sandbox fares sink to the bottom of Best — their prices are fiction.
-  if (offer.bookable?.testData) score += 1;
-  return score;
+    0.15 * (Math.min(totalStops(offer), 2) / 2)
+  );
 }
-
-// Duffel sandbox fares have fabricated prices/durations; they must never
-// outrank a real offer in any mode (Best handles this via a score penalty).
-const testRank = (o: FlightOffer): number => (o.bookable?.testData ? 1 : 0);
 
 export function sortOffers(
   offers: FlightOffer[],
@@ -62,21 +48,19 @@ export function sortOffers(
   if (mode === "cheapest") {
     return list.sort(
       (a, b) =>
-        testRank(a) - testRank(b) ||
-        a.price.totalUSD - b.price.totalUSD ||
+        a.displayUSD - b.displayUSD ||
         totalDurationMinutes(a) - totalDurationMinutes(b),
     );
   }
   if (mode === "fastest") {
     return list.sort(
       (a, b) =>
-        testRank(a) - testRank(b) ||
         totalDurationMinutes(a) - totalDurationMinutes(b) ||
-        a.price.totalUSD - b.price.totalUSD,
+        a.displayUSD - b.displayUSD,
     );
   }
   // best — normalize over the current set, recomputed each call.
-  const prices = list.map((o) => o.price.totalUSD).sort((x, y) => x - y);
+  const prices = list.map((o) => o.displayUSD).sort((x, y) => x - y);
   const durs = list.map(totalDurationMinutes).sort((x, y) => x - y);
   const ctx = {
     minPrice: prices[0] ?? 0,

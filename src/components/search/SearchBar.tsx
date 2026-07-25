@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { addDaysYmd as addDays, todayLocalYmd as todayYmd } from "@/lib/dates";
-import type { Cabin, SearchParams, TripType } from "@/lib/types";
+import type { Cabin, SearchQuery, TripType } from "@/lib/types";
 import { toQueryString } from "@/lib/types";
 import AirportField from "./AirportField";
 import DateField from "./DateField";
@@ -17,7 +17,7 @@ export default function SearchBar({
   initial,
   compact = false,
 }: {
-  initial?: Partial<SearchParams>;
+  initial?: Partial<SearchQuery>;
   compact?: boolean;
 }) {
   const router = useRouter();
@@ -34,7 +34,7 @@ export default function SearchBar({
   const [tripType, setTripType] = useState<TripType>(
     initial?.tripType ?? "round_trip",
   );
-  const [adults, setAdults] = useState(initial?.adults ?? 1);
+  const [adults, setAdults] = useState(initial?.passengers?.adults ?? 1);
   const [cabin, setCabin] = useState<Cabin>(initial?.cabin ?? "economy");
 
   const valid =
@@ -46,17 +46,16 @@ export default function SearchBar({
 
   const submit = () => {
     if (!valid) return;
-    const params: SearchParams = {
+    const query: SearchQuery = {
       origin,
       destination,
       departDate,
       returnDate: tripType === "round_trip" ? returnDate : undefined,
       tripType,
-      adults,
+      passengers: { adults, childAges: [], infants: 0 },
       cabin,
-      currency: "USD",
     };
-    router.push(`/results?${toQueryString(params)}`);
+    router.push(`/results?${toQueryString(query)}`);
   };
 
   const divider = <div className="h-10 w-px shrink-0 bg-white/10" />;

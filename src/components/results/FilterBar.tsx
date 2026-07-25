@@ -28,7 +28,7 @@ const BUCKET_LABELS: Record<TimeBucket, string> = {
 };
 
 export function departureBucket(offer: FlightOffer): TimeBucket {
-  const hour = Number(offer.legs[0]?.departure.slice(11, 13) ?? 12);
+  const hour = Number(offer.slices[0]?.departure.slice(11, 13) ?? 12);
   if (hour < 8) return "early";
   if (hour < 12) return "morning";
   if (hour < 18) return "afternoon";
@@ -38,8 +38,8 @@ export function departureBucket(offer: FlightOffer): TimeBucket {
 export function offerCarriers(offer: FlightOffer): string[] {
   return [
     ...new Set(
-      offer.legs.flatMap((leg) =>
-        leg.segments.map((s) => s.carrierCode || s.carrierName),
+      offer.slices.flatMap((slice) =>
+        slice.segments.map((s) => s.carrierCode || s.carrierName),
       ),
     ),
   ];
@@ -51,7 +51,7 @@ export function applyFilters(
 ): FlightOffer[] {
   return offers.filter((offer) => {
     if (filters.maxStops !== null) {
-      const worst = Math.max(...offer.legs.map((l) => l.stops));
+      const worst = Math.max(...offer.slices.map((s) => s.stops));
       if (worst > filters.maxStops) return false;
     }
     if (filters.airlines) {
@@ -100,10 +100,10 @@ export default function FilterBar({
   for (const offer of offers) {
     for (const code of offerCarriers(offer)) {
       const name =
-        offer.legs
-          .flatMap((l) => l.segments)
-          .find((s) => (s.carrierCode || s.carrierName) === code)?.carrierName ??
-        code;
+        offer.slices
+          .flatMap((s) => s.segments)
+          .find((s) => (s.carrierCode || s.carrierName) === code)
+          ?.carrierName ?? code;
       const entry = airlineCounts.get(code) ?? { name, count: 0 };
       entry.count += 1;
       airlineCounts.set(code, entry);

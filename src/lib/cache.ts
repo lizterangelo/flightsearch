@@ -1,13 +1,13 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { FlightOffer, SearchParams } from "./types";
-import { searchParamsKey } from "./types";
+import type { FlightOffer } from "./types";
 
 /**
- * Two-tier cache: module-level memory Map + .cache/search/*.json files.
- * The file tier survives Next dev hot-reloads — it is what actually protects
- * the 250/month SerpAPI quota during development.
+ * Two-tier offers cache: module-level memory Map + .cache/search/*.json
+ * files (the file tier survives dev hot-reloads). TTL is kept well under
+ * Duffel offer lifetime so a cached offer is still bookable when served —
+ * it exists to absorb rapid duplicate searches (refresh, double-submit).
  */
 
 const CACHE_DIR = path.join(process.cwd(), ".cache", "search");
@@ -19,29 +19,24 @@ interface CacheEntry {
 
 const memory = new Map<string, CacheEntry>();
 
-function cacheKey(providerId: string, params: SearchParams): string {
-  return createHash("sha1")
-    .update(`${providerId}:${searchParamsKey(params)}`)
-    .digest("hex");
+function fileKey(key: string): string {
+  return createHash("sha1").update(key).digest("hex");
 }
 
-export async function cacheGet(
-  providerId: string,
-  params: SearchParams,
-): Promise<FlightOffer[] | null> {
-  const key = cacheKey(providerId, params);
+export async function cacheGet(key: string): Promise<FlightOffer[] | null> {
+  const hashed = fileKey(key);
 
-  const inMemory = memory.get(key);
+  const inMemory = memory.get(hashed);
   if (inMemory) {
     if (inMemory.expiresAt > Date.now()) return inMemory.offers;
-    memory.delete(key);
+    memory.delete(hashed);
   }
 
   try {
-    const raw = await readFile(path.join(CACHE_DIR, `${key}.json`), "utf8");
+    const raw = await readFile(path.join(CACHE_DIR, `${hashed}.json`), "utf8");
     const entry = JSON.parse(raw) as CacheEntry;
     if (entry.expiresAt > Date.now() && Array.isArray(entry.offers)) {
-      memory.set(key, entry);
+      memory.set(hashed, entry);
       return entry.offers;
     }
   } catch {
@@ -51,24 +46,21 @@ export async function cacheGet(
 }
 
 export async function cacheSet(
-  providerId: string,
-  params: SearchParams,
+  key: string,
   offers: FlightOffer[],
   ttlMs: number,
 ): Promise<void> {
-  const key = cacheKey(providerId, params);
+  const hashed = fileKey(key);
   const entry: CacheEntry = { expiresAt: Date.now() + ttlMs, offers };
-  // Sweep expired entries so the Map doesn't retain offer arrays for keys
-  // that are never re-queried. It stays small, so O(size) per write is fine.
   const now = Date.now();
   for (const [k, v] of memory) {
     if (v.expiresAt <= now) memory.delete(k);
   }
-  memory.set(key, entry);
+  memory.set(hashed, entry);
   try {
     await mkdir(CACHE_DIR, { recursive: true });
     await writeFile(
-      path.join(CACHE_DIR, `${key}.json`),
+      path.join(CACHE_DIR, `${hashed}.json`),
       JSON.stringify(entry),
       "utf8",
     );
@@ -77,16 +69,19 @@ export async function cacheSet(
   }
 }
 
-/** Fixture support: MOCK_FIXTURES=1 replays saved provider responses. */
+/**
+ * Fixture support: MOCK_FIXTURES=1 replays a saved offers list for a route,
+ * letting UI work proceed offline. Files: .cache/fixtures/duffel-JFK-MIA.json
+ */
 export async function fixtureGet(
-  providerId: string,
-  params: SearchParams,
+  origin: string,
+  destination: string,
 ): Promise<FlightOffer[] | null> {
   const file = path.join(
     process.cwd(),
     ".cache",
     "fixtures",
-    `${providerId}-${params.origin}-${params.destination}.json`,
+    `duffel-${origin}-${destination}.json`,
   );
   try {
     const raw = await readFile(file, "utf8");
@@ -94,5 +89,23 @@ export async function fixtureGet(
     return Array.isArray(offers) ? offers : null;
   } catch {
     return null;
+  }
+}
+
+export async function fixtureSet(
+  origin: string,
+  destination: string,
+  offers: FlightOffer[],
+): Promise<void> {
+  const dir = path.join(process.cwd(), ".cache", "fixtures");
+  try {
+    await mkdir(dir, { recursive: true });
+    await writeFile(
+      path.join(dir, `duffel-${origin}-${destination}.json`),
+      JSON.stringify(offers),
+      "utf8",
+    );
+  } catch {
+    // Best-effort.
   }
 }
