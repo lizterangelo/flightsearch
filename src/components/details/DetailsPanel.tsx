@@ -12,6 +12,7 @@ import type {
   OfferService,
   SearchQuery,
 } from "@/lib/types";
+import { itineraryKeyFor } from "@/lib/types";
 import { buildFlightsPath } from "@/lib/urls";
 import AirlineLogo from "../results/AirlineLogo";
 import Timeline from "./Timeline";
@@ -76,6 +77,7 @@ export default function DetailsPanel({
   const [bagQty, setBagQty] = useState<Map<string, number>>(() => new Map());
   const [protect, setProtect] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
+  const [watching, setWatching] = useState(false);
 
   // Always refetch for services/current price; streamed offer renders
   // instantly in the meantime.
@@ -336,6 +338,49 @@ export default function DetailsPanel({
             <div className="text-xs tracking-wide text-muted">
               {offer.slices.length > 1 ? "round trip" : "one-way"}
             </div>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!me) {
+                  setAuthOpen(true);
+                  return;
+                }
+                try {
+                  const res = await fetch("/api/watches", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      itineraryKey: itineraryKeyFor(offer),
+                      searchUrl:
+                        window.location.pathname + window.location.search,
+                      label: `${out?.originCity ?? offer.slices[0]?.origin} ${offer.slices.length > 1 ? "⇄" : "→"} ${out?.destinationCity ?? offer.slices[0]?.destination} · ${out?.departure.slice(0, 10) ?? ""}`,
+                      cabin: out?.cabin ?? "economy",
+                      priceUSD: Math.round(offer.displayUSD),
+                    }),
+                  });
+                  if (!res.ok) throw new Error();
+                  setWatching(true);
+                  toast("Watching — price changes land in My Flights");
+                } catch {
+                  toast("Couldn't save the watch");
+                }
+              }}
+              className={`mt-2 inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${
+                watching
+                  ? "border-accent/60 bg-accent/15 text-accent-bright"
+                  : "border-card-border bg-pill/70 text-slate-200 hover:text-white"
+              }`}
+            >
+              <svg viewBox="0 0 20 20" fill="none" className="size-3.5">
+                <path
+                  d="M2.5 10S5.5 4.5 10 4.5 17.5 10 17.5 10 14.5 15.5 10 15.5 2.5 10 2.5 10z"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                />
+                <circle cx="10" cy="10" r="2.2" stroke="currentColor" strokeWidth="1.4" />
+              </svg>
+              {watching ? "Watching" : "Watch"}
+            </button>
           </div>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { getSessionUser } from "@/lib/auth";
 import { listOrdersForUser, type OrderRow } from "@/lib/db";
 import type { FlightOffer } from "@/lib/types";
 import OrderCard from "@/components/trips/OrderCard";
+import WatchList from "@/components/trips/WatchList";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +75,8 @@ export default async function MyFlightsPage() {
           </div>
         </>
       )}
+
+      <WatchList />
     </main>
   );
 }

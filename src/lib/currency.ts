@@ -5,7 +5,7 @@
  * shown as a converted price to the user).
  */
 
-const APPROX_USD_RATES: Record<string, number> = {
+export const APPROX_USD_RATES: Record<string, number> = {
   USD: 1,
   EUR: 1.09,
   GBP: 1.28,

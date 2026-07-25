@@ -220,6 +220,17 @@ export function totalDurationMinutes(offer: FlightOffer): number {
   return offer.slices.reduce((sum, s) => sum + s.durationMinutes, 0);
 }
 
+/** Stable key pinning an itinerary for price watches (client + server). */
+export function itineraryKeyFor(offer: FlightOffer): string {
+  const flights = offer.slices
+    .flatMap((s) =>
+      s.segments.map((seg) => seg.flightNumber.replace(/\s/g, "")),
+    )
+    .join(",");
+  const dates = offer.slices.map((s) => s.departure.slice(0, 10)).join("|");
+  return `${flights}@${dates}@${offer.slices[0]?.cabin ?? "economy"}`;
+}
+
 export function totalStops(offer: FlightOffer): number {
   return offer.slices.reduce((sum, s) => sum + s.stops, 0);
 }

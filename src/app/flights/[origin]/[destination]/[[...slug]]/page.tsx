@@ -9,6 +9,7 @@ import FilterBar, {
   EMPTY_FILTERS,
   type Filters,
 } from "@/components/results/FilterBar";
+import FlexDateStrip from "@/components/results/FlexDateStrip";
 import FlightCard from "@/components/results/FlightCard";
 import ResultsHeader from "@/components/results/ResultsHeader";
 import SkeletonCard from "@/components/results/SkeletonCard";
@@ -216,6 +217,8 @@ function FlightsContent({
               />
             </div>
           </div>
+
+          {query.flexDays ? <FlexDateStrip query={query} /> : null}
 
           <div className="space-y-4">
             {visible.map((offer, i) => (

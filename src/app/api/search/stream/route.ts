@@ -1,5 +1,6 @@
 import { cityAirports } from "@/lib/airports";
 import { cacheGet, cacheSet, fixtureGet } from "@/lib/cache";
+import { recordObservations } from "@/lib/calendar";
 import { duffelConfigured } from "@/lib/duffel/client";
 import { runSearchStream, type SearchTarget } from "@/lib/duffel/search";
 import { encodeEvent } from "@/lib/sse";
@@ -161,6 +162,7 @@ export async function GET(req: Request): Promise<Response> {
         );
         if (offers.length > 0) {
           await cacheSet(cacheKey, offers, CACHE_TTL_MS);
+          recordObservations(offers);
         }
         finish(offers.length);
       } catch (err) {
