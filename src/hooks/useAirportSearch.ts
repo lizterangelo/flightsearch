@@ -52,15 +52,12 @@ export function selectionFromPlace(place: Place): PlaceSelection {
 
 /** Debounced autocomplete against /api/places. */
 export function usePlacesSearch(query: string): Place[] {
-  const [places, setPlaces] = useState<Place[]>([]);
+  const [fetched, setFetched] = useState<Place[]>([]);
   const abortRef = useRef<AbortController | null>(null);
+  const q = query.trim();
 
   useEffect(() => {
-    const q = query.trim();
-    if (q.length < 2) {
-      setPlaces([]);
-      return;
-    }
+    if (q.length < 2) return;
     const controller = new AbortController();
     abortRef.current?.abort();
     abortRef.current = controller;
@@ -73,7 +70,7 @@ export function usePlacesSearch(query: string): Place[] {
         if (!res.ok) return;
         const body = (await res.json()) as { places?: Place[] };
         if (!controller.signal.aborted && Array.isArray(body.places)) {
-          setPlaces(body.places);
+          setFetched(body.places);
         }
       } catch {
         // Aborted or offline — keep the previous list.
@@ -84,9 +81,10 @@ export function usePlacesSearch(query: string): Place[] {
       clearTimeout(t);
       controller.abort();
     };
-  }, [query]);
+  }, [q]);
 
-  return places;
+  // Short queries render empty without clearing the fetched cache.
+  return q.length < 2 ? [] : fetched;
 }
 
 /** Reverse-geocode the browser location to the nearest large airport. */

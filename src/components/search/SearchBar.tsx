@@ -93,22 +93,25 @@ export default function SearchBar({
   const [dateModalOpen, setDateModalOpen] = useState(false);
 
   // Default origin: last used, else geolocate on mount (like flysoar's
-  // pre-filled "From"). Never blocks typing.
+  // pre-filled "From"). Async so hydration renders the same empty field the
+  // server did; never blocks typing.
   useEffect(() => {
     if (origin) return;
-    try {
-      const saved = localStorage.getItem(LAST_ORIGIN_KEY);
-      if (saved) {
-        setOrigin(JSON.parse(saved) as PlaceSelection);
-        return;
-      }
-    } catch {
-      // Bad JSON — fall through to geolocation.
-    }
     let cancelled = false;
-    nearestAirportSelection().then((sel) => {
+    (async () => {
+      try {
+        const saved = localStorage.getItem(LAST_ORIGIN_KEY);
+        if (saved) {
+          const sel = JSON.parse(saved) as PlaceSelection;
+          if (!cancelled) setOrigin((prev) => prev ?? sel);
+          return;
+        }
+      } catch {
+        // Bad JSON — fall through to geolocation.
+      }
+      const sel = await nearestAirportSelection();
       if (sel && !cancelled) setOrigin((prev) => prev ?? sel);
-    });
+    })();
     return () => {
       cancelled = true;
     };

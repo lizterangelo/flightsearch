@@ -178,14 +178,17 @@ export default function DatePickerModal({
   const [monthOffset, setMonthOffset] = useState(0);
   const [tiers, setTiers] = useState<Map<string, Tier>>(() => new Map());
 
-  useEffect(() => {
-    if (!open) return;
-    setTripType(initialTripType);
-    setDepart(initialDepart);
-    setRet(initialReturn);
-    setFlex(initialFlex);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  // Re-seed from props each time the modal opens (render-time adjustment).
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setTripType(initialTripType);
+      setDepart(initialDepart);
+      setRet(initialReturn);
+      setFlex(initialFlex);
+    }
+  }
 
   // Price heatmap for the visible year around today.
   useEffect(() => {

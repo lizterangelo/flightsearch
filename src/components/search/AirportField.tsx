@@ -106,7 +106,7 @@ export default function AirportField({
   placeholder: string;
   autoFocusOnMount?: boolean;
 }) {
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(autoFocusOnMount);
   const [query, setQuery] = useState("");
   const [highlight, setHighlight] = useState(0);
   const places = usePlacesSearch(query);
@@ -114,10 +114,7 @@ export default function AirportField({
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (autoFocusOnMount) {
-      setEditing(true);
-      setTimeout(() => inputRef.current?.focus(), 0);
-    }
+    if (autoFocusOnMount) inputRef.current?.focus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
