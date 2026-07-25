@@ -15,8 +15,8 @@ export default function LegRow({ slice }: { slice: OfferSlice }) {
 
   return (
     <div className="flex items-center gap-5">
-      <div className="w-24 text-right">
-        <div className="text-[26px] leading-8 font-semibold text-white">
+      <div className="w-28 text-right">
+        <div className="text-[23px] leading-8 font-semibold whitespace-nowrap text-white">
           {formatTime(slice.departure)}
         </div>
         <div className="text-sm text-muted">{slice.origin}</div>
@@ -50,8 +50,8 @@ export default function LegRow({ slice }: { slice: OfferSlice }) {
         />
       </svg>
 
-      <div className="w-24">
-        <div className="text-[26px] leading-8 font-semibold text-white">
+      <div className="w-28">
+        <div className="text-[23px] leading-8 font-semibold whitespace-nowrap text-white">
           {formatTime(slice.arrival)}
           {slice.overnightDays > 0 && (
             <sup className="ml-0.5 text-xs font-semibold text-stop">

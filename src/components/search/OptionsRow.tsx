@@ -1,7 +1,8 @@
 "use client";
 
-import type { Cabin, TripType } from "@/lib/types";
+import type { Cabin, PassengerCounts, TripType } from "@/lib/types";
 import Dropdown, { Chevron, MenuItem } from "./Dropdown";
+import PassengerPicker from "./PassengerPicker";
 
 const CABIN_LABELS: Record<Cabin, string> = {
   economy: "Economy",
@@ -27,17 +28,17 @@ function Check() {
 /** The secondary pill under the hero search bar: trip type / pax / cabin. */
 export default function OptionsRow({
   tripType,
-  adults,
+  passengers,
   cabin,
   onTripTypeChange,
-  onAdultsChange,
+  onPassengersChange,
   onCabinChange,
 }: {
   tripType: TripType;
-  adults: number;
+  passengers: PassengerCounts;
   cabin: Cabin;
   onTripTypeChange: (v: TripType) => void;
-  onAdultsChange: (v: number) => void;
+  onPassengersChange: (v: PassengerCounts) => void;
   onCabinChange: (v: Cabin) => void;
 }) {
   const item =
@@ -47,7 +48,7 @@ export default function OptionsRow({
     <div className="flex items-center divide-x divide-white/10 rounded-full bg-pill/80 backdrop-blur-md">
       <Dropdown
         trigger={(open) => (
-          <span className={item}>
+          <span className={item} aria-label="Trip type">
             <svg viewBox="0 0 20 20" fill="none" className="size-4.5 text-slate-300">
               <path
                 d="M4 6.5h11m0 0l-3-3m3 3l-3 3M16 13.5H5m0 0l3-3m-3 3l3 3"
@@ -81,47 +82,11 @@ export default function OptionsRow({
         )}
       </Dropdown>
 
-      <Dropdown
-        trigger={(open) => (
-          <span className={item}>
-            <svg viewBox="0 0 20 20" fill="none" className="size-4.5 text-slate-300">
-              <circle cx="10" cy="6.5" r="3" stroke="currentColor" strokeWidth="1.5" />
-              <path
-                d="M4 16.5c0-2.8 2.7-4.5 6-4.5s6 1.7 6 4.5"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-            </svg>
-            {adults} Passenger{adults > 1 ? "s" : ""}
-            <Chevron open={open} />
-          </span>
-        )}
-      >
-        {(close) => (
-          <>
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-              <MenuItem
-                key={n}
-                selected={adults === n}
-                onClick={() => {
-                  onAdultsChange(n);
-                  close();
-                }}
-              >
-                <span>
-                  {n} Passenger{n > 1 ? "s" : ""}
-                </span>
-                {adults === n && <Check />}
-              </MenuItem>
-            ))}
-          </>
-        )}
-      </Dropdown>
+      <PassengerPicker value={passengers} onChange={onPassengersChange} />
 
       <Dropdown
         trigger={(open) => (
-          <span className={item}>
+          <span className={item} aria-label="Cabin">
             <svg viewBox="0 0 20 20" fill="none" className="size-4.5 text-slate-300">
               <path
                 d="M4.5 12V7a2 2 0 012-2h7a2 2 0 012 2v5M3 15.5h14a1 1 0 001-1V13a1 1 0 00-1-1H3a1 1 0 00-1 1v1.5a1 1 0 001 1z"

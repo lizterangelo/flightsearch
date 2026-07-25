@@ -190,3 +190,28 @@ body {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
 }
+
+/* Dual-handle time slider: only the thumbs take pointer events. */
+.time-slider::-webkit-slider-thumb {
+  appearance: none;
+  pointer-events: auto;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 2px solid var(--accent);
+  cursor: grab;
+}
+.time-slider::-moz-range-thumb {
+  pointer-events: auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 2px solid var(--accent);
+  cursor: grab;
+}
+.time-slider:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 1px;
+}

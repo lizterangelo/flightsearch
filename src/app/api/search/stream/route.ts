@@ -1,3 +1,4 @@
+import { cityAirports } from "@/lib/airports";
 import { cacheGet, cacheSet, fixtureGet } from "@/lib/cache";
 import { duffelConfigured } from "@/lib/duffel/client";
 import { runSearchStream, type SearchTarget } from "@/lib/duffel/search";
@@ -17,13 +18,30 @@ const CACHE_TTL_MS = 60_000;
 const MAX_TARGETS = 4;
 
 /**
- * Resolve the airport pairs to search. Metro "Any airport" fan-out lands in
- * Phase 2 with the cities dataset; until then a search is one target pair.
+ * Resolve the airport pairs to search. Metro "Any airport" picks fan out to
+ * one offer request per member airport (hubs first, capped at 2 per side and
+ * MAX_TARGETS total, matching flysoar's one-request-per-airport behavior).
  */
 function resolveTargets(q: SearchQuery): SearchTarget[] {
-  const targets: SearchTarget[] = [
-    { origin: q.origin, destination: q.destination },
-  ];
+  const origins = q.originAny
+    ? cityAirports(q.originAny, 2).map((a) => a.iata)
+    : [];
+  const destinations = q.destinationAny
+    ? cityAirports(q.destinationAny, 2).map((a) => a.iata)
+    : [];
+  if (origins.length === 0) origins.push(q.origin);
+  if (destinations.length === 0) destinations.push(q.destination);
+
+  const targets: SearchTarget[] = [];
+  for (const origin of origins) {
+    for (const destination of destinations) {
+      if (origin !== destination) targets.push({ origin, destination });
+    }
+  }
+  // Ensure the representative pair is searched even if capping trims it.
+  if (!targets.some((t) => t.origin === q.origin && t.destination === q.destination)) {
+    targets.unshift({ origin: q.origin, destination: q.destination });
+  }
   return targets.slice(0, MAX_TARGETS);
 }
 

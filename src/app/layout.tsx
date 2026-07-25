@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import Header from "@/components/Header";
 import NightSky from "@/components/NightSky";
 
 const geistSans = Geist({
@@ -14,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Fly now, explain later.",
+  title: "Soar - Find and Book Cheap Flights",
   description:
-    "Flight search that hunts real fares across Google, OTAs, and airline sites — and flags anything cheaper than Google Flights.",
+    "Search live fares and book in seconds — direct airline inventory, honest prices, and a refund guarantee.",
 };
 
 export default function RootLayout({
@@ -32,6 +33,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <NightSky />
         <div className="relative z-10 flex min-h-screen flex-col">
+          <Header />
           {children}
         </div>
       </body>

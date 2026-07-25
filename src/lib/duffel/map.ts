@@ -1,4 +1,5 @@
 import type { Offer, OfferSliceSegment } from "@duffel/api/types";
+import fleetData from "@/data/aircraft-amenities.json";
 import { toUSD } from "../currency";
 import type {
   Cabin,
@@ -69,18 +70,53 @@ function mapConditions(c: DuffelConditions | null | undefined): OfferConditions 
   };
 }
 
-function mapAmenities(seg: OfferSliceSegment): SegmentAmenities | null {
+interface FleetEntry {
+  wifi: boolean;
+  wifiCost: string;
+  power: boolean;
+  pitch: string;
+}
+const fleet = fleetData as unknown as Record<string, FleetEntry>;
+
+/** Typical-config fallback keyed by aircraft-name substring. */
+function fleetAmenities(aircraftName: string | null): SegmentAmenities | null {
+  if (!aircraftName) return null;
+  for (const [key, entry] of Object.entries(fleet)) {
+    if (key.startsWith("_")) continue;
+    if (aircraftName.includes(key)) {
+      return {
+        wifi: {
+          available: entry.wifi,
+          cost: (entry.wifiCost as "free" | "paid" | "free or paid" | "n/a") ??
+            "n/a",
+        },
+        power: { available: entry.power },
+        seat: { pitch: entry.pitch, type: "standard" },
+        source: "fleet",
+      };
+    }
+  }
+  return null;
+}
+
+function mapAmenities(
+  seg: OfferSliceSegment,
+  aircraftName: string | null,
+): SegmentAmenities | null {
   const cabin = seg.passengers?.[0]?.cabin;
   const amenities = cabin?.amenities;
-  if (!amenities) return null;
-  const { wifi, power, seat } = amenities;
-  if (!wifi && !power && !seat) return null;
-  return {
-    wifi: wifi ? { available: wifi.available, cost: wifi.cost } : null,
-    power: power ? { available: power.available } : null,
-    seat: seat ? { pitch: seat.pitch, type: seat.type } : null,
-    source: "duffel",
-  };
+  if (amenities) {
+    const { wifi, power, seat } = amenities;
+    if (wifi || power || seat) {
+      return {
+        wifi: wifi ? { available: wifi.available, cost: wifi.cost } : null,
+        power: power ? { available: power.available } : null,
+        seat: seat ? { pitch: seat.pitch, type: seat.type } : null,
+        source: "duffel",
+      };
+    }
+  }
+  return fleetAmenities(aircraftName);
 }
 
 function mapSegment(seg: OfferSliceSegment): OfferSegment | null {
@@ -99,6 +135,7 @@ function mapSegment(seg: OfferSliceSegment): OfferSegment | null {
   const flightNumber = seg.marketing_carrier_flight_number
     ? `${marketing.iata_code ?? ""} ${seg.marketing_carrier_flight_number}`.trim()
     : "";
+  const aircraftName = seg.aircraft?.name ?? null;
 
   return {
     id: seg.id,
@@ -118,7 +155,7 @@ function mapSegment(seg: OfferSliceSegment): OfferSegment | null {
     departure: wall(seg.departing_at),
     arrival: wall(seg.arriving_at),
     durationMinutes: isoDurationMinutes(seg.duration),
-    aircraftName: seg.aircraft?.name ?? null,
+    aircraftName,
     fareBasisCode: pax?.fare_basis_code ?? null,
     fareBrand: null, // slice-level on Duffel; filled by caller
     cabin: (pax?.cabin_class ?? "economy") as Cabin,
@@ -129,7 +166,7 @@ function mapSegment(seg: OfferSliceSegment): OfferSegment | null {
     baggageChecked: bags
       .filter((b) => b.type === "checked")
       .reduce((n, b) => n + b.quantity, 0),
-    amenities: mapAmenities(seg),
+    amenities: mapAmenities(seg, aircraftName),
   };
 }
 
