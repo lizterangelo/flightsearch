@@ -3,10 +3,16 @@
  * Smoke test: streams /api/search/stream for canned routes and prints a
  * request × status × offers × min-price table. Nonzero exit if no request
  * returned ok on any route. Usage:
- *   node scripts/smoke.mjs [baseUrl]     (default http://localhost:3000)
+ *   node scripts/smoke.mjs [baseUrl]            stream-only check
+ *   node scripts/smoke.mjs --book [baseUrl]     + full test booking:
+ *     sign in (dev OTP) → search LHR→JFK → prefer a Duffel Airways offer →
+ *     seat map → book with a bag/seat/protect → cancel quote → confirm.
+ *     Refuses to book when the offer is live_mode.
  */
 
-const BASE = process.argv[2] ?? "http://localhost:3000";
+const args = process.argv.slice(2);
+const BOOK = args.includes("--book");
+const BASE = args.find((a) => !a.startsWith("--")) ?? "http://localhost:3000";
 
 function futureDate(daysAhead) {
   const d = new Date(Date.now() + daysAhead * 86400000);
@@ -119,4 +125,202 @@ if (!anyOk) {
   console.error("\nSMOKE FAILED: no request returned ok on any route.");
   process.exit(1);
 }
-console.log("\nSmoke passed.");
+console.log("\nStream smoke passed.");
+
+/* ------------------------- booking flow (--book) ------------------------- */
+
+if (BOOK) {
+  console.log("\n=== booking flow ===");
+  let cookie = "";
+  const jfetch = async (path, init = {}) => {
+    const res = await fetch(`${BASE}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(cookie ? { cookie } : {}),
+        ...(init.headers ?? {}),
+      },
+    });
+    const setCookie = res.headers.get("set-cookie");
+    if (setCookie) cookie = setCookie.split(";")[0];
+    let body = null;
+    try {
+      body = await res.json();
+    } catch {
+      // Non-JSON (stream) — caller handles.
+    }
+    return { res, body };
+  };
+
+  // 1. Sign in with the dev OTP.
+  const identifier = "+15550009999";
+  const started = await jfetch("/api/auth/start", {
+    method: "POST",
+    body: JSON.stringify({ identifier }),
+  });
+  const devCode = started.body?.devCode;
+  if (!devCode) {
+    console.error("No devCode (is NODE_ENV=development?)");
+    process.exit(1);
+  }
+  const verified = await jfetch("/api/auth/verify", {
+    method: "POST",
+    body: JSON.stringify({ identifier, code: devCode }),
+  });
+  if (!verified.body?.user) {
+    console.error("Auth failed:", verified.body);
+    process.exit(1);
+  }
+  console.log(`signed in as ${verified.body.user.identifier}`);
+
+  // 2. Search LHR→JFK and prefer a Duffel Airways (ZZ) offer for seat maps.
+  const params = new URLSearchParams({
+    origin: "LHR",
+    destination: "JFK",
+    departDate: futureDate(30),
+    returnDate: futureDate(37),
+    tripType: "round_trip",
+    adults: "1",
+    cabin: "economy",
+  });
+  const streamRes = await fetch(`${BASE}/api/search/stream?${params}`);
+  const offers = [];
+  const reader = streamRes.body
+    .pipeThrough(new TextDecoderStream())
+    .getReader();
+  let buffer = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += value;
+    let sep;
+    while ((sep = buffer.indexOf("\n\n")) !== -1) {
+      const chunk = buffer.slice(0, sep);
+      buffer = buffer.slice(sep + 2);
+      const dataLine = chunk.split("\n").find((l) => l.startsWith("data: "));
+      if (!dataLine) continue;
+      try {
+        const event = JSON.parse(dataLine.slice(6));
+        if (event.type === "offer") offers.push(event.offer);
+      } catch {}
+    }
+  }
+  if (offers.length === 0) {
+    console.error("No offers streamed");
+    process.exit(1);
+  }
+  const offer =
+    offers.find((o) => o.ownerCode === "ZZ") ??
+    offers.find((o) => !o.liveMode) ??
+    null;
+  if (!offer) {
+    console.error("Refusing: only live_mode offers available.");
+    process.exit(1);
+  }
+  console.log(
+    `offer ${offer.id} · ${offer.ownerName} · ${offer.totalAmount} ${offer.totalCurrency} · live_mode=${offer.liveMode}`,
+  );
+  if (offer.liveMode) {
+    console.error("Refusing to book a live-mode offer.");
+    process.exit(1);
+  }
+
+  // 3. Fresh offer + services + passengers.
+  const detail = await jfetch(`/api/offers/${offer.id}`);
+  if (!detail.res.ok) {
+    console.error("Offer fetch failed:", detail.body);
+    process.exit(1);
+  }
+  const passengers = detail.body.passengers;
+  const bag = (detail.body.services ?? []).find((s) => s.type === "baggage");
+  console.log(
+    `services: ${detail.body.services.length} (bag: ${bag ? bag.id : "none"})`,
+  );
+
+  // 4. Seat map → first available seat for passenger 1.
+  let seatService = null;
+  const seatMap = await jfetch(`/api/offers/${offer.id}/seat-map`);
+  if (seatMap.res.ok) {
+    outer: for (const map of seatMap.body.maps ?? []) {
+      for (const cabin of map.cabins) {
+        for (const row of cabin.rows) {
+          for (const section of row.sections) {
+            for (const el of section.elements) {
+              if (el.type === "seat" && el.services?.length) {
+                const svc = el.services.find(
+                  (s) => s.passengerId === passengers[0].id,
+                );
+                if (svc) {
+                  seatService = { ...svc, designator: el.designator };
+                  break outer;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  console.log(
+    seatService
+      ? `seat: ${seatService.designator} (${seatService.totalAmount} ${seatService.totalCurrency})`
+      : "seat: none available",
+  );
+
+  // 5. Book with bag + seat + protect.
+  const services = [
+    ...(bag ? [{ id: bag.id, quantity: 1 }] : []),
+    ...(seatService ? [{ id: seatService.id, quantity: 1 }] : []),
+  ];
+  const booked = await jfetch("/api/book", {
+    method: "POST",
+    body: JSON.stringify({
+      offerId: offer.id,
+      passengers: passengers.map((p, i) => ({
+        id: p.id,
+        title: "ms",
+        given_name: "Amelia",
+        family_name: `Tester${String.fromCharCode(65 + i)}`,
+        born_on: "1990-04-01",
+        gender: "f",
+        email: "amelia.tester@example.com",
+        phone_number: "+14155550123",
+      })),
+      services,
+      protect: true,
+      protectFeeUSD: 19,
+      displayTotalUSD: offer.displayUSD + 19,
+    }),
+  });
+  if (!booked.res.ok) {
+    console.error("BOOKING FAILED:", booked.body);
+    process.exit(1);
+  }
+  console.log(
+    `BOOKED ✓ order ${booked.body.orderId} · PNR ${booked.body.bookingReference} · ${booked.body.totalAmount} ${booked.body.totalCurrency}`,
+  );
+
+  // 6. Cancel: quote then confirm.
+  const quote = await jfetch(`/api/orders/${booked.body.orderId}/cancel`, {
+    method: "POST",
+  });
+  if (!quote.res.ok) {
+    console.error("Cancel quote failed:", quote.body);
+    process.exit(1);
+  }
+  console.log(
+    `cancel quote ${quote.body.cancellationId} · refund ${quote.body.refundAmount ?? "per fare rules"} ${quote.body.refundCurrency ?? ""}`,
+  );
+  const confirmed = await jfetch(
+    `/api/orders/${booked.body.orderId}/cancel/confirm`,
+    {
+      method: "POST",
+      body: JSON.stringify({ cancellationId: quote.body.cancellationId }),
+    },
+  );
+  if (!confirmed.res.ok) {
+    console.error("Cancel confirm failed:", confirmed.body);
+    process.exit(1);
+  }
+  console.log("CANCELLED ✓ — booking flow passed.");
+}
