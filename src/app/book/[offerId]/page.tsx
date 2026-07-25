@@ -76,18 +76,22 @@ export default function CheckoutPage({
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
 
   // Carry over services/protect chosen on the details panel via query params.
+  // Deferred a tick: SSR-safe and satisfies no-sync-setState-in-effect.
   useEffect(() => {
-    const sp = new URLSearchParams(window.location.search);
-    setProtect(sp.get("protect") === "1");
-    const services = sp.get("services");
-    if (services) {
-      const next = new Map<string, number>();
-      for (const part of services.split(",")) {
-        const [id, qty] = part.split(":");
-        if (id && Number(qty) > 0) next.set(id, Number(qty));
+    const t = setTimeout(() => {
+      const sp = new URLSearchParams(window.location.search);
+      setProtect(sp.get("protect") === "1");
+      const services = sp.get("services");
+      if (services) {
+        const next = new Map<string, number>();
+        for (const part of services.split(",")) {
+          const [id, qty] = part.split(":");
+          if (id && Number(qty) > 0) next.set(id, Number(qty));
+        }
+        setBagQty(next);
       }
-      setBagQty(next);
-    }
+    }, 0);
+    return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {
