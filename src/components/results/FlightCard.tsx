@@ -1,4 +1,5 @@
-import Link from "next/link";
+"use client";
+
 import type { FlightOffer } from "@/lib/types";
 import AirlineLogo from "./AirlineLogo";
 import { BestBadge } from "./Badges";
@@ -7,9 +8,12 @@ import LegRow from "./LegRow";
 export default function FlightCard({
   offer,
   isBest,
+  onOpen,
 }: {
   offer: FlightOffer;
   isBest: boolean;
+  /** Open the details view (card body click AND the Book pill). */
+  onOpen: (offer: FlightOffer) => void;
 }) {
   const tripLabel = offer.slices.length > 1 ? "round-trip" : "one-way";
 
@@ -19,7 +23,8 @@ export default function FlightCard({
     // No backdrop-blur here: dozens of blurring cards over the fixed starfield
     // can hang the compositor; the near-opaque card color does the job.
     <div
-      className={`card-arrive relative rounded-3xl border bg-card p-6 ${
+      onClick={() => onOpen(offer)}
+      className={`card-arrive relative cursor-pointer rounded-3xl border bg-card p-6 transition hover:border-white/20 ${
         isBest
           ? "border-accent/50 shadow-[0_0_30px_rgba(46,107,255,0.15)]"
           : "border-card-border"
@@ -55,12 +60,12 @@ export default function FlightCard({
             </div>
             <div className="text-xs tracking-wide text-muted">{tripLabel}</div>
           </div>
-          <Link
-            href={`/book/${offer.id}`}
-            className="rounded-full bg-accent px-6 py-2 text-sm font-semibold text-white shadow-[0_0_18px_rgba(46,107,255,0.4)] transition hover:brightness-110"
+          <button
+            type="button"
+            className="cursor-pointer rounded-full bg-accent px-6 py-2 text-sm font-semibold text-white shadow-[0_0_18px_rgba(46,107,255,0.4)] transition hover:brightness-110"
           >
             Book
-          </Link>
+          </button>
         </div>
       </div>
     </div>

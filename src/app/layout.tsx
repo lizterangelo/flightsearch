@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import NightSky from "@/components/NightSky";
+import { ToastProvider } from "@/components/ui/Toast";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,10 +33,12 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <NightSky />
-        <div className="relative z-10 flex min-h-screen flex-col">
-          <Header />
-          {children}
-        </div>
+        <ToastProvider>
+          <div className="relative z-10 flex min-h-screen flex-col">
+            <Header />
+            {children}
+          </div>
+        </ToastProvider>
       </body>
     </html>
   );

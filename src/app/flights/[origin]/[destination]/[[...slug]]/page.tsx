@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, use, useEffect, useMemo, useState } from "react";
+import DetailsPanel from "@/components/details/DetailsPanel";
 import FilterBar, {
   applyFilters,
   EMPTY_FILTERS,
@@ -15,7 +16,8 @@ import SortMenu from "@/components/results/SortMenu";
 import SearchBar, { selectionsFromQuery } from "@/components/search/SearchBar";
 import { useFlightSearch } from "@/hooks/useFlightSearch";
 import type { SortMode } from "@/lib/rank";
-import { parseFlightsPath, type ParsedFlightsPath } from "@/lib/urls";
+import type { FlightOffer } from "@/lib/types";
+import { buildFlightsPath, parseFlightsPath, type ParsedFlightsPath } from "@/lib/urls";
 
 const PAGE_SIZE = 15;
 
@@ -49,11 +51,45 @@ function FlightsContent({
     }
   }, [origin, destination, slug, rawParams]);
 
+  const router = useRouter();
   const query = parsed?.query ?? null;
+  const offerId = parsed?.offerId;
   const [sortMode, setSortMode] = useState<SortMode>("best");
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const { offers, isStreaming, error } = useFlightSearch(query, sortMode);
+
+  const openDetails = (offer: FlightOffer) => {
+    if (!query) return;
+    const sp = new URLSearchParams(rawParams.toString());
+    // Selection criteria: lets a shared/stale link re-resolve an equivalent
+    // offer after this offer id expires.
+    const seg = offer.slices[0]?.segments[0];
+    if (seg) {
+      sp.set("select_carrier", seg.carrierCode);
+      sp.set("select_flight", seg.flightNumber.split(" ").pop() ?? "");
+      sp.set("select_departure", seg.departure);
+      sp.set("select_stops", String(offer.slices[0]?.stops ?? 0));
+    }
+    const path = buildFlightsPath(query, offer.id).split("?")[0];
+    router.push(`${path}?${sp.toString()}`, { scroll: false });
+  };
+
+  const closeDetails = () => {
+    if (!query) return;
+    const sp = new URLSearchParams(rawParams.toString());
+    for (const key of [...sp.keys()]) {
+      if (key.startsWith("select_")) sp.delete(key);
+    }
+    const qs = sp.toString();
+    const path = buildFlightsPath(query).split("?")[0];
+    router.push(qs ? `${path}?${qs}` : path, { scroll: false });
+  };
+
+  const streamedOffer = useMemo(
+    () => (offerId ? (offers.find((o) => o.id === offerId) ?? null) : null),
+    [offerId, offers],
+  );
 
   const filtered = useMemo(
     () => applyFilters(offers, filters),
@@ -187,6 +223,7 @@ function FlightsContent({
                 key={offer.dedupeKey}
                 offer={offer}
                 isBest={sortMode === "best" && i === 0 && !isStreaming}
+                onOpen={openDetails}
               />
             ))}
             {Array.from({ length: showSkeletons }).map((_, i) => (
@@ -213,6 +250,15 @@ function FlightsContent({
             </div>
           )}
         </>
+      )}
+
+      {offerId && query && (
+        <DetailsPanel
+          query={query}
+          offerId={offerId}
+          streamedOffer={streamedOffer}
+          onClose={closeDetails}
+        />
       )}
     </main>
   );

@@ -158,6 +158,26 @@ export interface FlightOffer {
   slices: OfferSlice[];
 }
 
+/**
+ * A purchasable ancillary on an offer (Duffel available_services), trimmed
+ * to what the details panel and checkout need.
+ */
+export interface OfferService {
+  id: string;
+  type: "baggage" | "cancel_for_any_reason" | string;
+  totalAmount: string;
+  totalCurrency: string;
+  totalUSD: number;
+  maximumQuantity: number;
+  /** For baggage: checked vs carry_on + weight when the airline says. */
+  baggage?: {
+    type: "checked" | "carry_on";
+    maximumWeightKg: number | null;
+  };
+  passengerIds: string[];
+  segmentIds: string[];
+}
+
 /* ------------------------------------------------------------------ */
 /* SSE stream event vocabulary (/api/search/stream)                    */
 /* ------------------------------------------------------------------ */
