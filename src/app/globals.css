@@ -1,26 +1,192 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #050b18;
+  --foreground: #f1f5f9;
+  --accent: #2e6bff;
+  --accent-bright: #3b82f6;
+  --card: rgba(13, 22, 44, 0.92);
+  --card-border: rgba(255, 255, 255, 0.08);
+  --pill: rgba(10, 17, 34, 0.85);
+  --muted: #8b96ab;
+  --direct: #34d399;
+  --stop: #f87171;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --color-accent-bright: var(--accent-bright);
+  --color-card: var(--card);
+  --color-card-border: var(--card-border);
+  --color-pill: var(--pill);
+  --color-muted: var(--muted);
+  --color-direct: var(--direct);
+  --color-stop: var(--stop);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+body {
+  background: #050b18;
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+/*
+ * The sky gradient lives on a fixed layer (not background-attachment: fixed,
+ * which black-screens on scroll in some Chromium compositors).
+ */
+.sky-gradient {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+    ellipse 120% 80% at 50% -20%,
+    #101d3f 0%,
+    #0b1530 40%,
+    #050b18 100%
+  );
+}
+
+/* Starfield: two layers of box-shadow "stars" drifting/twinkling slowly */
+.stars,
+.stars-far {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.stars::after,
+.stars-far::after {
+  content: "";
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 9999px;
+  background: transparent;
+}
+
+.stars::after {
+  box-shadow:
+    4vw 12vh 0 0 rgba(255, 255, 255, 0.9),
+    12vw 32vh 0 0 rgba(255, 255, 255, 0.5),
+    22vw 8vh 0 0 rgba(255, 255, 255, 0.7),
+    31vw 42vh 0 0 rgba(255, 255, 255, 0.4),
+    44vw 15vh 0 0 rgba(255, 255, 255, 0.8),
+    52vw 55vh 0 0 rgba(255, 255, 255, 0.35),
+    61vw 25vh 0 0 rgba(255, 255, 255, 0.65),
+    72vw 6vh 0 0 rgba(255, 255, 255, 0.85),
+    81vw 38vh 0 0 rgba(255, 255, 255, 0.45),
+    92vw 18vh 0 0 rgba(255, 255, 255, 0.75),
+    96vw 62vh 0 0 rgba(255, 255, 255, 0.3),
+    8vw 68vh 0 0 rgba(255, 255, 255, 0.4),
+    37vw 74vh 0 0 rgba(255, 255, 255, 0.3),
+    67vw 80vh 0 0 rgba(255, 255, 255, 0.35),
+    87vw 88vh 0 0 rgba(255, 255, 255, 0.4);
+  animation: twinkle 5s ease-in-out infinite alternate;
+}
+
+.stars-far::after {
+  width: 1px;
+  height: 1px;
+  box-shadow:
+    7vw 22vh 0 0 rgba(255, 255, 255, 0.4),
+    17vw 5vh 0 0 rgba(255, 255, 255, 0.3),
+    27vw 58vh 0 0 rgba(255, 255, 255, 0.25),
+    35vw 28vh 0 0 rgba(255, 255, 255, 0.35),
+    49vw 44vh 0 0 rgba(255, 255, 255, 0.2),
+    57vw 12vh 0 0 rgba(255, 255, 255, 0.4),
+    69vw 52vh 0 0 rgba(255, 255, 255, 0.3),
+    77vw 30vh 0 0 rgba(255, 255, 255, 0.25),
+    89vw 48vh 0 0 rgba(255, 255, 255, 0.35),
+    95vw 8vh 0 0 rgba(255, 255, 255, 0.3),
+    14vw 84vh 0 0 rgba(255, 255, 255, 0.2),
+    47vw 90vh 0 0 rgba(255, 255, 255, 0.25),
+    83vw 72vh 0 0 rgba(255, 255, 255, 0.2);
+  animation: twinkle 7s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes twinkle {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.45;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@media (prefers-reduced-motion: reduce) {
+  .stars::after,
+  .stars-far::after {
+    animation: none;
+  }
+}
+
+/* Soft cloud band along the bottom of the viewport */
+.clouds {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  height: 45vh;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(60% 55% at 18% 100%, rgba(148, 163, 184, 0.16) 0%, transparent 70%),
+    radial-gradient(50% 60% at 52% 108%, rgba(148, 163, 184, 0.22) 0%, transparent 72%),
+    radial-gradient(55% 50% at 85% 102%, rgba(148, 163, 184, 0.14) 0%, transparent 70%),
+    radial-gradient(90% 40% at 50% 115%, rgba(203, 213, 225, 0.1) 0%, transparent 75%);
+  filter: blur(6px);
+}
+
+/* Highlight flash for freshly-inserted result cards */
+@keyframes card-arrive {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+    box-shadow: 0 0 0 1px rgba(46, 107, 255, 0.55);
+  }
+  60% {
+    box-shadow: 0 0 0 1px rgba(46, 107, 255, 0.35);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.card-arrive {
+  animation: card-arrive 0.5s ease-out;
+}
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  from {
+    background-position: -400px 0;
+  }
+  to {
+    background-position: 400px 0;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 25%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.04) 75%
+  );
+  background-size: 800px 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+/* Thin scrollbars that fit the dark theme */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
 }
