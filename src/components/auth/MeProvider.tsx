@@ -66,7 +66,10 @@ export function MeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    void refresh();
+    // Deferred a tick: keeps hydration render clean and satisfies the
+    // no-sync-setState-in-effect rule.
+    const t = setTimeout(() => void refresh(), 0);
+    return () => clearTimeout(t);
   }, [refresh]);
 
   return (
