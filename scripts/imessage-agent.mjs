@@ -1434,8 +1434,10 @@ async function daemonLoop() {
       // everyone else acts on their linked web account (or gets a link).
       const st = stateFor(row.chat ?? sender);
       st.handle = normalize(sender);
-      st.owner = row.is_from_me ? true : allowed(sender, explicit);
-      st.behalf = st.owner ? null : await linkedContext(st.handle);
+      // Account match wins (verified link or profile phone); owner mode
+      // only when no web account claims the number.
+      st.behalf = await linkedContext(st.handle);
+      st.owner = !st.behalf && (row.is_from_me ? true : allowed(sender, explicit));
       const reply = await handleText(row.chat ?? sender, text);
       try {
         await sendMessage(row.handle ?? row.chat, `${MARKER}${reply}`);
