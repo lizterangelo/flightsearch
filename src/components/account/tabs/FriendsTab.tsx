@@ -17,7 +17,7 @@ export interface FriendRow {
   phone: string | null;
 }
 
-const REFERRAL_REWARD_USD = 26.5;
+export const REFERRAL_REWARD_USD = 26.5;
 
 /** Friends: referral hero + credit, saved co-travelers, share row. */
 export default function FriendsTab() {
