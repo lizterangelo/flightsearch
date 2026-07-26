@@ -18,7 +18,14 @@
  *   ANTHROPIC_API_KEY       optional -> natural language mode
  *   SOAR_AGENT_MODEL        default claude-sonnet-5
  *   SOAR_AGENT_ALLOW        comma-separated handles (phone/email) allowed to
- *                           command the agent — REQUIRED in daemon mode
+ *                           command the agent — REQUIRED in daemon mode.
+ *                           "*" opens it to everyone (1:1 iMessage threads
+ *                           only — group chats, SMS and short codes are
+ *                           ignored, and senders are rate-limited). Keep
+ *                           your own handle listed alongside "*" if you
+ *                           text the agent from your own Apple ID.
+ *   SOAR_AGENT_RATE         open-mode per-sender messages/hour (default 30)
+ *   SOAR_AGENT_RATE_GLOBAL  open-mode total messages/hour (default 120)
  *   SOAR_AGENT_MARKER       reply prefix, default "✈️ " (self-chat loop guard)
  *   SOAR_AGENT_POLL_MS      default 3000
  *
@@ -530,6 +537,33 @@ function allowed(handle, allowList) {
   });
 }
 
+/** Short codes (5–6 digit senders) are automated SMS — never a traveler. */
+function isShortCode(handle) {
+  const h = normalize(handle);
+  return !h.includes("@") && h.replace(/\D/g, "").length < 8;
+}
+
+/** Sliding-window rate limiter for open mode. */
+function makeLimiter(perSender, global) {
+  const bySender = new Map();
+  const all = [];
+  const prune = (arr, now) => {
+    while (arr.length && now - arr[0] > 3600_000) arr.shift();
+  };
+  return (sender) => {
+    const now = Date.now();
+    prune(all, now);
+    if (all.length >= global) return false;
+    const mine = bySender.get(sender) ?? [];
+    prune(mine, now);
+    if (mine.length >= perSender) return false;
+    mine.push(now);
+    all.push(now);
+    bySender.set(sender, mine);
+    return true;
+  };
+}
+
 async function sendMessage(handle, text) {
   const script = `on run argv
   tell application "Messages"
@@ -544,7 +578,11 @@ end run`;
 
 const states = new Map();
 const stateFor = (key) => {
-  if (!states.has(key)) states.set(key, { history: [], offers: [], pending: null });
+  if (!states.has(key)) {
+    // Open mode can accumulate stranger threads — drop the oldest.
+    if (states.size >= 200) states.delete(states.keys().next().value);
+    states.set(key, { history: [], offers: [], pending: null });
+  }
   return states.get(key);
 };
 
@@ -579,10 +617,17 @@ async function daemonLoop() {
   const allowList = (env.SOAR_AGENT_ALLOW ?? "").split(",").map((s) => s.trim()).filter(Boolean);
   if (allowList.length === 0) {
     console.error(
-      "SOAR_AGENT_ALLOW is required in daemon mode (comma-separated phone/email handles allowed to command the agent).",
+      "SOAR_AGENT_ALLOW is required in daemon mode (comma-separated handles, or * to answer everyone).",
     );
     process.exit(1);
   }
+  const openMode = allowList.includes("*");
+  const explicit = allowList.filter((a) => a !== "*");
+  const rateOk = makeLimiter(
+    Number(env.SOAR_AGENT_RATE ?? 30),
+    Number(env.SOAR_AGENT_RATE_GLOBAL ?? 120),
+  );
+
   let last;
   try {
     last = (await sqlJson("SELECT COALESCE(MAX(ROWID),0) AS m FROM message"))[0].m;
@@ -592,14 +637,17 @@ async function daemonLoop() {
     );
     process.exit(1);
   }
-  console.log(`Soar iMessage agent up · watching for ${allowList.join(", ")} · replies prefixed "${MARKER.trim()}"`);
+  console.log(
+    `Soar iMessage agent up · ${openMode ? "OPEN to everyone (1:1 iMessage only, rate-limited)" : `watching for ${explicit.join(", ")}`} · replies prefixed "${MARKER.trim()}"`,
+  );
 
   setInterval(async () => {
     let rows;
     try {
       rows = await sqlJson(`
-        SELECT m.ROWID AS rowid, m.is_from_me, m.text, hex(m.attributedBody) AS ab,
-               h.id AS handle, c.chat_identifier AS chat
+        SELECT m.ROWID AS rowid, m.is_from_me, m.text, m.service,
+               hex(m.attributedBody) AS ab,
+               h.id AS handle, c.chat_identifier AS chat, c.style AS style
         FROM message m
         JOIN chat_message_join cmj ON cmj.message_id = m.ROWID
         JOIN chat c ON c.ROWID = cmj.chat_id
@@ -613,10 +661,26 @@ async function daemonLoop() {
       last = Math.max(last, row.rowid);
       const text = (row.text ?? "").trim() || decodeAttributedBody(row.ab);
       if (!text || text.startsWith(MARKER.trim())) continue;
+      // DMs only — never speak in group threads (style 43).
+      if (row.style !== 45) continue;
       const sender = row.handle ?? row.chat;
-      // Self-chat messages have is_from_me=1; anything else must not be ours.
-      if (row.is_from_me && !allowed(row.chat, allowList)) continue;
-      if (!allowed(sender, allowList)) continue;
+      if (row.is_from_me) {
+        // Our own outgoing texts count as commands only in an explicitly
+        // listed self-chat — never in open mode (those are you texting
+        // friends, not the agent).
+        if (!allowed(row.chat, explicit)) continue;
+      } else if (openMode) {
+        if (!allowed(sender, explicit)) {
+          if (row.service !== "iMessage") continue; // no SMS/short-code noise
+          if (isShortCode(sender)) continue;
+          if (!rateOk(normalize(sender))) {
+            console.log(`[rate-limited] ${sender}`);
+            continue;
+          }
+        }
+      } else if (!allowed(sender, explicit)) {
+        continue;
+      }
       console.log(`[${new Date().toISOString()}] ${sender}: ${text}`);
       const reply = await handleText(row.chat ?? sender, text);
       try {

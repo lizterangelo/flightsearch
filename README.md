@@ -99,7 +99,14 @@ Setup (`.env`):
   `book 1 First Last 1990-04-01 f`, `flights`, `cancel <order id>`, `yes`).
   `SOAR_AGENT_MODEL` overrides the default `claude-sonnet-5`.
 - `SOAR_AGENT_ALLOW` — comma-separated phone/email handles allowed to
-  command the daemon. Required; everyone else is ignored.
+  command the daemon. Required; everyone else is ignored. Set it to `*`
+  to answer **anyone** who texts you — open mode only speaks in 1:1
+  iMessage threads (group chats, SMS and 5–6-digit short-code senders are
+  ignored) and rate-limits strangers (`SOAR_AGENT_RATE` per sender/hour,
+  default 30; `SOAR_AGENT_RATE_GLOBAL` total/hour, default 120 — they cap
+  Anthropic API spend). Keep your own handle listed alongside the star
+  (`SOAR_AGENT_ALLOW=*,+639XXXXXXXXX`) if you text the agent from your
+  own Apple ID's self-chat.
 - `NEXT_PUBLIC_IMESSAGE_HANDLE` — optional; shows the iMessage chip in the
   homepage footer linking to your agent's handle.
 
