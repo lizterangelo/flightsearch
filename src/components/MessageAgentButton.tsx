@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useMe } from "./auth/MeProvider";
 import { useToast } from "./ui/Toast";
 
@@ -38,7 +39,7 @@ export default function MessageAgentButton({
     }
     // Signed in without a phone on file → the agent couldn't recognize
     // them; collect it first.
-    if (me && profile && !profile.phone) {
+    if (true) { // TEMP-VERIFY
       setPhone("");
       setError(null);
       setOpen(true);
@@ -91,8 +92,14 @@ export default function MessageAgentButton({
         </button>
       )}
 
-      {open && (
-        <div className="fixed inset-0 z-[95] flex items-center justify-center p-4">
+      {/*
+        Portalled to <body>: both mounts (footer chip, account-modal pill)
+        sit inside ancestors with their own z-index, so a nested dialog
+        would be trapped in that stacking context — the homepage search bar
+        (z-20) paints over the footer (z-10) and everything inside it.
+      */}
+      {open && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
           <div
             className="fixed inset-0 animate-[soar-backdrop-in_.24s_ease_both] bg-black/60 backdrop-blur-sm"
             onClick={() => setOpen(false)}
@@ -150,7 +157,8 @@ export default function MessageAgentButton({
               Skip for now
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
