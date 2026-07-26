@@ -3,11 +3,13 @@
 A pixel-close, feature-complete clone of [flysoar.ai](https://flysoar.ai)
 built end-to-end on the **Duffel test API** — live streaming search, metro
 "Any airport" fan-out, a price-heatmap date picker, flight details with
-seat maps / bags / fare rules, OTP sign-in, checkout with sandbox payment,
-order management with cancellations, and price watches.
+seat maps / bags / fare rules, Google sign-in, checkout with sandbox
+payment, order management with cancellations, price watches, and an
+iMessage concierge agent.
 
-> **Private study project.** Recreated for learning; the Soar branding
-> belongs to its owners. Run it locally — don't deploy it publicly.
+> **Private study project.** Recreated for learning; the Soar name, logo
+> and assets belong to their owners — keep this to yourself and your own
+> testers rather than promoting it, and rebrand before any public use.
 > Test mode only: sandbox fares, unlimited test balance, no real tickets.
 
 Built with Next.js 16 (App Router, Turbopack), TypeScript, Tailwind v4,
@@ -72,80 +74,87 @@ node scripts/smoke.mjs [base]          # stream smoke (2 routes)
 node scripts/smoke.mjs --book [base]   # + full sandbox booking incl. seat,
                                        #   bag, protect, then cancel (refuses
                                        #   live-mode offers)
+node scripts/imessage-agent.mjs --repl # chat with the concierge in a terminal
 ```
 
 ## iMessage agent
 
-flysoar has a "text us" concierge; the clone ships a local equivalent:
-`scripts/imessage-agent.mjs`, a daemon that reads incoming iMessages from
-the Mac's `~/Library/Messages/chat.db`, runs an agent loop against this
-app's APIs, and replies in-thread via AppleScript. No new dependencies —
-it uses the macOS-bundled `sqlite3` and `osascript`. It covers the whole
-product surface (**test fares only**): search · offer details · seat maps
-· booking with bags, seats, passports, Protect, multi-traveler and
-auto-attached loyalty · orders + order detail · cancellation (quote →
-confirm) · price calendar · price watches (add/list/remove/refresh) ·
-profile editing (name, phone, travel documents, currency, theme,
-notification + beta toggles) · saved friends · loyalty programmes ·
-display-only card vault · feedback. Account deletion is deliberately not
-offered (the agent account is shared) — that stays in the web app.
-`SOAR_BASE` points it at any deployment of this app (e.g. your Vercel
-URL); it defaults to localhost.
+flysoar has a "text us" concierge; the clone has one too, and it runs in
+the cloud — **no Mac involved**. It lives in a sibling repo,
+[`../soar-imessage-agent`](../soar-imessage-agent), built on
+[Sendblue](https://sendblue.com) (hosts the iMessage line and posts
+inbound texts as webhooks) + Nitro + Vercel Workflow, deployed alongside
+this app on Vercel. Its brain (`server/utils/agent-core.mjs`) talks to
+this app's own HTTP APIs, so the two deploy independently.
 
-```bash
-node scripts/imessage-agent.mjs --repl   # try it in the terminal first
-node scripts/imessage-agent.mjs          # the real Messages daemon
-```
+It covers the whole product surface (**test fares only**): search · offer
+details · seat maps · booking with bags, seats, passports, Protect,
+multi-traveler and auto-attached loyalty · orders + order detail ·
+cancellation (quote → confirm) · price calendar · price watches ·
+profile editing · saved friends · loyalty programmes · display-only card
+vault · feedback. Account deletion is deliberately not offered — that
+stays in the web app.
 
-Setup (`.env`):
+**How it identifies you.** Every inbound text carries the sender's number,
+resolved in this order:
 
-- `SOAR_AGENT_EMAIL` / `SOAR_AGENT_PASSWORD` — the Supabase account the
-  agent books on (email+password user; create one in the dashboard under
-  Authentication → Users → Add user → auto-confirm).
-- `ANTHROPIC_API_KEY` — enables natural language ("find me something to
-  Tokyo mid-September, book the cheapest direct"). Without it the agent
-  still works with plain commands (`search CEB HND 2026-09-04`,
-  `book 1 First Last 1990-04-01 f`, `flights`, `cancel <order id>`, `yes`).
-  `SOAR_AGENT_MODEL` overrides the default `claude-sonnet-5`. **Billing
-  note:** this is the pay-as-you-go Anthropic API (console.anthropic.com),
-  separate from a Claude / Claude Code subscription.
-- `GEMINI_API_KEY` — alternative natural-language brain when no Anthropic
-  key is set (Google AI Studio keys have a free tier);
-  `SOAR_AGENT_MODEL_GEMINI` overrides the default `gemini-2.5-flash`.
-- `SOAR_AGENT_ALLOW` — comma-separated phone/email handles allowed to
-  command the daemon. Required; everyone else is ignored. Set it to `*`
-  to answer **anyone** who texts you — open mode only speaks in 1:1
-  iMessage threads (group chats, SMS and 5–6-digit short-code senders are
-  ignored) and rate-limits strangers (`SOAR_AGENT_RATE` per sender/hour,
-  default 30; `SOAR_AGENT_RATE_GLOBAL` total/hour, default 120 — they cap
-  Anthropic API spend). Keep your own handle listed alongside the star
-  (`SOAR_AGENT_ALLOW=*,+639XXXXXXXXX`) if you text the agent from your
-  own Apple ID's self-chat.
-- `NEXT_PUBLIC_IMESSAGE_HANDLE` — optional; shows the iMessage chip in the
-  homepage footer linking to your agent's handle.
+1. a verified link — the sender tapped a one-time `/agent-link?token=…`
+   URL and signed in with Google, binding that number to their account
+   (`agent_links`);
+2. a **profile phone match** — the number matches `profiles.phone`, so
+   saving your number on the Account tab is enough to be recognized (this
+   is why the site's "Message Agent" button asks for a phone number first
+   when yours is empty);
+3. otherwise the number is an *owner* handle from `SOAR_AGENT_ALLOW` and
+   drives the shared agent account, or it's a stranger and gets a
+   sign-in link.
 
-macOS permissions (daemon mode only): sign the Mac into Messages; give
-your terminal **Full Disk Access** (System Settings → Privacy & Security)
-so it can read `chat.db`; approve the **Automation → Messages** prompt on
-first send. Texting the agent from the same Apple ID (a self-chat) works —
-replies are prefixed `✈️` and the daemon skips its own messages.
+Recognized travelers get bookings on **their own** account — orders carry
+`on_behalf_user_id` and appear in their web My Flights, contact details
+prefill from their profile, and they only ever see their own trips.
+Profile editing, friends, loyalty, cards and watches stay web-side for
+them; owners keep full control of the agent account.
 
-**Account linking** (their sign-in-over-iMessage flow): when someone who
-isn't the owner texts the agent, account actions reply with a one-time
-`/agent-link?token=…` URL. Opening it and signing in (Google) binds that
-phone/email to their web account; from then on the agent books **on their
-account** — orders carry `on_behalf_user_id`, show up in their web
-My Flights, and contact details prefill from their profile. Profile
-editing, friends, loyalty, cards and watches stay web-side for linked
-travelers; the owner (explicitly allow-listed handles) keeps full control
-of the agent account. The Account tab's "Message Agent" button opens the
-thread via `NEXT_PUBLIC_IMESSAGE_HANDLE`.
+Setup lives in that repo's `README-SOAR.md`; the short version:
 
-Safety rails: the agent only answers allow-listed handles (or everyone in
-open mode, rate-limited), always asks for an explicit "yes" (stating the
-exact total) before booking or cancelling, and refuses live-mode offers
-outright — the dev server and Duffel test token mean nothing real is ever
-ticketed.
+- Deploy it (`pnpm dlx vercel`), then point the Sendblue dashboard's
+  inbound webhook at `https://<agent-app>.vercel.app/api/webhooks/sendblue`.
+- Env: `SOAR_BASE` (this app's URL), the two `NEXT_PUBLIC_SUPABASE_*`
+  values, `SOAR_AGENT_EMAIL`/`SOAR_AGENT_PASSWORD` (the Supabase account
+  the agent books on), `SOAR_AGENT_ALLOW` (owner handles),
+  `SENDBLUE_API_KEY`/`SENDBLUE_API_SECRET`/`SENDBLUE_FROM_NUMBER`, and one
+  model key.
+- Model: `GEMINI_API_KEY` (Google AI Studio, free tier —
+  `gemini-2.5-flash`) or `ANTHROPIC_API_KEY` (pay-as-you-go API, separate
+  from any Claude subscription; `claude-sonnet-5`). With neither, it falls
+  back to plain commands (`search CEB HND 2026-09-04`, `flights`, `yes`).
+- Sendblue's free tier is a shared line that only messages **verified
+  contacts** (10 slots in their dashboard); a dedicated number anyone can
+  text is their paid plan.
+
+On this side, set `NEXT_PUBLIC_IMESSAGE_HANDLE` to the agent's number so
+the homepage footer chip and the Account tab's "Message Agent" button open
+the thread.
+
+Safety rails: an explicit "yes" (with the exact total stated) is required
+before any booking or cancellation, live-mode offers are refused outright,
+the card vault never accepts full card numbers, and the Duffel test token
+means nothing real is ever ticketed.
+
+<details>
+<summary>Legacy: the Mac daemon</summary>
+
+`scripts/imessage-agent.mjs` was the original edition — a local daemon
+reading `~/Library/Messages/chat.db` and replying via AppleScript, with no
+dependencies beyond macOS's own `sqlite3` and `osascript`. It shares the
+same tools, gates and Supabase tables as the cloud agent (both were kept
+in sync), and it still works: `node scripts/imessage-agent.mjs --repl` is
+a handy terminal REPL for exercising the agent without any messaging
+provider. It needs the Mac awake, Full Disk Access for the terminal, and
+the Automation → Messages permission. The cloud edition replaced it for
+day-to-day use.
+
+</details>
 
 ## Duffel test-mode notes
 
@@ -172,6 +181,10 @@ Everything lives in the Supabase project (`soar-clone`): profiles (contact,
 travel documents, preferences, points, referral credit), friends, loyalty
 programmes, a display-only card vault (brand + last4), orders with offer
 snapshots, watches, price observations, and feedback — all behind RLS.
+The iMessage agent shares the same database: `agent_links` (phone →
+account), `agent_link_tokens` (one-time sign-in tokens, 15-minute expiry)
+and `agent_threads` (per-conversation state, since the cloud agent is
+serverless and remembers nothing between texts).
 The account modal (avatar → `#/account/...`) mirrors the original's nine
 tabs: Account, Details, Loyalty & Points, Friends, Notifications, Billing,
 Receipts, Beta, and Settings (theme, display currency, Confirm Before
