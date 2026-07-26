@@ -508,7 +508,7 @@ async function myFlights(state) {
   const gate = needsAccount() ?? (await linkGate(state));
   if (gate) return gate;
   const rows = await rest(
-    "/orders?select=duffel_order_id,booking_reference,status,total_amount,total_currency,created_at,user_id,on_behalf_user_id&order=created_at.desc&limit=40",
+    "/orders?select=duffel_order_id,booking_reference,status,total_amount,total_currency,created_at,user_id,on_behalf_user_id,slices:offer_snapshot->slices&order=created_at.desc&limit=14",
   );
   if (!rows.ok) return { error: "Sign-in for the agent account failed — check .env credentials." };
   // Web-made bookings carry the traveler in user_id; agent-made carry
@@ -520,10 +520,23 @@ async function myFlights(state) {
           r.on_behalf_user_id === state.behalf.user_id,
       )
     : rows.body.filter((r) => r.user_id === uid());
+  // Trip-first entries: the traveler hears routes and dates, never raw
+  // ids — order_id rides along for cancellations only.
   return {
-    flights: mine.slice(0, 8).map(
-      (r) => `${r.booking_reference} · ${r.status} · ${r.total_amount} ${r.total_currency} · order ${r.duffel_order_id}`,
-    ),
+    flights: mine.slice(0, 8).map((r) => {
+      const slices = Array.isArray(r.slices) ? r.slices : [];
+      const first = slices[0] ?? {};
+      const route = first.origin
+        ? `${first.origin} ${slices.length > 1 ? "⇄" : "→"} ${first.destination}`
+        : "Trip";
+      return {
+        trip: `${route} · ${String(first.departure ?? "").slice(0, 10)} · ${slices.length > 1 ? "round trip" : "one way"}`,
+        status: r.status,
+        pnr: r.booking_reference,
+        total: `${r.total_amount} ${r.total_currency}`,
+        order_id: r.duffel_order_id,
+      };
+    }),
   };
 }
 
@@ -988,6 +1001,7 @@ Style: text-message short. Plain text only — no markdown, no bullets, at most 
 Intro: when someone greets you or opens a new conversation, start with: "Hi, this is the Flysoar clone ✈️ I can search flights, compare prices and seats, book and cancel trips, watch fares, and manage your account — all over text." Then ask what they need. Don't repeat the intro once the conversation is underway.
 You can do everything the app can: search, compare, seat maps, bags, multi-traveler bookings (friends' saved details help), Protect, cancellations, price calendars, watches, and full account management (profile, phone, travel documents, preferences, notifications, friends, loyalty, card vault, feedback).
 Account linking: some tools reply with a sign-in link for unlinked travelers — pass that URL along verbatim and tell them to tap it, sign in, then text again. Linked travelers get bookings on their own Soar account; profile/friends/watch management happens on the website for them.
+Never recite internal ids (ord_…, off_…, uuids) to the traveler — describe flights by route, dates, airline and PNR; ids are for your tool calls only.
 Hard rules: resolve vague dates to YYYY-MM-DD (ask if unsure). Before book_flight or a cancel confirmation you MUST state the exact quoted total/refund and get an explicit yes — only then pass confirmed=true. Collect every traveler's name, date of birth and gender (plus passports when required). NEVER accept full card numbers — the vault stores brand + last 4 only. Account deletion is not something you can do; point people to the web app's Settings.`;
 
 async function runClaude(state, userText) {
@@ -1176,7 +1190,11 @@ async function runCommands(state, text) {
   if (lower === "flights") {
     const result = await myFlights(state);
     if (result.error) return result.error;
-    return result.flights.length ? result.flights.join("\n") : "No bookings yet.";
+    return result.flights.length
+      ? result.flights
+          .map((f) => `${f.trip} · ${f.status} · PNR ${f.pnr}`)
+          .join("\n")
+      : "No bookings yet.";
   }
   if (lower === "order" && rest_[0]) {
     const result = await orderDetails(state, rest_[0]);

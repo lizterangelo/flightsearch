@@ -156,7 +156,7 @@ export default function AccountModal() {
   if (loaded && !me) {
     return <AuthModal open onClose={close} />;
   }
-  if (!me && process.env.NODE_ENV !== "development") return null; // TEMP-PREVIEW
+  if (!me) return null;
 
   const go = (next: TabId) => {
     history.pushState(null, "", `#/account/${next}`);
