@@ -74,6 +74,46 @@ node scripts/smoke.mjs --book [base]   # + full sandbox booking incl. seat,
                                        #   live-mode offers)
 ```
 
+## iMessage agent
+
+flysoar has a "text us" concierge; the clone ships a local equivalent:
+`scripts/imessage-agent.mjs`, a daemon that reads incoming iMessages from
+the Mac's `~/Library/Messages/chat.db`, runs an agent loop against this
+app's own APIs (search → details → book → cancel, **test fares only**),
+and replies in-thread via AppleScript. No new dependencies — it uses the
+macOS-bundled `sqlite3` and `osascript`.
+
+```bash
+node scripts/imessage-agent.mjs --repl   # try it in the terminal first
+node scripts/imessage-agent.mjs          # the real Messages daemon
+```
+
+Setup (`.env`):
+
+- `SOAR_AGENT_EMAIL` / `SOAR_AGENT_PASSWORD` — the Supabase account the
+  agent books on (email+password user; create one in the dashboard under
+  Authentication → Users → Add user → auto-confirm).
+- `ANTHROPIC_API_KEY` — enables natural language ("find me something to
+  Tokyo mid-September, book the cheapest direct"). Without it the agent
+  still works with plain commands (`search CEB HND 2026-09-04`,
+  `book 1 First Last 1990-04-01 f`, `flights`, `cancel <order id>`, `yes`).
+  `SOAR_AGENT_MODEL` overrides the default `claude-sonnet-5`.
+- `SOAR_AGENT_ALLOW` — comma-separated phone/email handles allowed to
+  command the daemon. Required; everyone else is ignored.
+- `NEXT_PUBLIC_IMESSAGE_HANDLE` — optional; shows the iMessage chip in the
+  homepage footer linking to your agent's handle.
+
+macOS permissions (daemon mode only): sign the Mac into Messages; give
+your terminal **Full Disk Access** (System Settings → Privacy & Security)
+so it can read `chat.db`; approve the **Automation → Messages** prompt on
+first send. Texting the agent from the same Apple ID (a self-chat) works —
+replies are prefixed `✈️` and the daemon skips its own messages.
+
+Safety rails: the agent only answers allow-listed handles, always asks for
+an explicit "yes" (stating the exact total) before booking or cancelling,
+and refuses live-mode offers outright — the dev server and Duffel test
+token mean nothing real is ever ticketed.
+
 ## Duffel test-mode notes
 
 - Sandbox carriers: Duffel Airways (`ZZ`) plus airline sandboxes; prices

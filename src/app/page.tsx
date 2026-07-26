@@ -12,6 +12,16 @@ export default function Home() {
       <SearchBar />
 
       <footer className="fixed right-6 bottom-5 z-10 flex items-center gap-4 text-xs text-muted">
+        {process.env.NEXT_PUBLIC_IMESSAGE_HANDLE && (
+          <a
+            href={`sms:${process.env.NEXT_PUBLIC_IMESSAGE_HANDLE}`}
+            className="flex items-center gap-1.5 transition hover:text-white"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/imessage-logo.png" alt="" className="size-4 rounded" />
+            iMessage
+          </a>
+        )}
         <a href="/terms" className="transition hover:text-white">
           Terms
         </a>
