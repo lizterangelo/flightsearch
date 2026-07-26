@@ -1004,10 +1004,43 @@ Account linking: some tools reply with a sign-in link for unlinked travelers —
 Never recite internal ids (ord_…, off_…, uuids) to the traveler — describe flights by route, dates, airline and PNR; ids are for your tool calls only.
 Hard rules: resolve vague dates to YYYY-MM-DD (ask if unsure). Before book_flight or a cancel confirmation you MUST state the exact quoted total/refund and get an explicit yes — only then pass confirmed=true. Collect every traveler's name, date of birth and gender (plus passports when required). NEVER accept full card numbers — the vault stores brand + last 4 only. Account deletion is not something you can do; point people to the web app's Settings.`;
 
+/**
+ * Both providers reject a tool-result turn that isn't immediately preceded
+ * by the matching tool-call turn. Naive trimming (dropping the oldest turns
+ * once a thread gets long) can decapitate a pair and leave an orphan, and a
+ * tool round aborted mid-flight can leave a dangling call. Rebuild the
+ * transcript so every result follows its call, no call dangles, and it
+ * opens on a plain user turn.
+ */
+function sanitizeHistory(history, { isCall, isResult }) {
+  const out = [];
+  for (const turn of history) {
+    if (isResult(turn) && !isCall(out[out.length - 1])) continue;
+    out.push(turn);
+  }
+  while (out.length && isCall(out[out.length - 1])) out.pop();
+  while (out.length && (out[0].role !== "user" || isResult(out[0]))) out.shift();
+  return out;
+}
+
+const CLAUDE_SHAPE = {
+  isCall: (m) =>
+    Array.isArray(m?.content) && m.content.some((b) => b.type === "tool_use"),
+  isResult: (m) =>
+    Array.isArray(m?.content) && m.content.some((b) => b.type === "tool_result"),
+};
+
+const GEMINI_SHAPE = {
+  isCall: (t) => Boolean(t?.parts?.some((p) => p.functionCall)),
+  isResult: (t) => Boolean(t?.parts?.some((p) => p.functionResponse)),
+};
+
 async function runClaude(state, userText) {
+  state.history = sanitizeHistory(state.history ?? [], CLAUDE_SHAPE);
   state.history.push({ role: "user", content: userText });
-  while (state.history.length > 24) state.history.shift();
-  if (state.history[0]?.role !== "user") state.history.shift();
+  if (state.history.length > 24) {
+    state.history = sanitizeHistory(state.history.slice(-24), CLAUDE_SHAPE);
+  }
 
   for (let round = 0; round < 10; round++) {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -1078,10 +1111,11 @@ const GEMINI_MODEL = env.SOAR_AGENT_MODEL_GEMINI ?? "gemini-2.5-flash";
  * Gemini's contents format on state.ghistory.
  */
 async function runGemini(state, userText) {
-  state.ghistory ??= [];
+  state.ghistory = sanitizeHistory(state.ghistory ?? [], GEMINI_SHAPE);
   state.ghistory.push({ role: "user", parts: [{ text: userText }] });
-  while (state.ghistory.length > 30) state.ghistory.shift();
-  if (state.ghistory[0]?.role !== "user") state.ghistory.shift();
+  if (state.ghistory.length > 30) {
+    state.ghistory = sanitizeHistory(state.ghistory.slice(-30), GEMINI_SHAPE);
+  }
 
   const declarations = TOOLS.map((t) => ({
     name: t.name,
@@ -1358,9 +1392,20 @@ const stateFor = (key) => {
   return states.get(key);
 };
 
+/** Words that wipe the thread and start fresh. */
+const RESET_RE =
+  /^\s*(reset|restart|start over|clear|new chat|forget( it| everything)?)\s*[.!]?\s*$/i;
+
 async function handleText(chatKey, text) {
   const state = stateFor(chatKey);
   try {
+    if (RESET_RE.test(text)) {
+      state.history = [];
+      state.ghistory = [];
+      state.offers = [];
+      state.pending = null;
+      return "Cleared — fresh start. Where are you flying?";
+    }
     if (env.ANTHROPIC_API_KEY) return await runClaude(state, text);
     if (env.GEMINI_API_KEY) return await runGemini(state, text);
     return await runCommands(state, text);
