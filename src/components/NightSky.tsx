@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
+import { useMe } from "./auth/MeProvider";
 
 /**
  * The Soar sky, layer for layer (classes in soar-theme.css):
@@ -120,28 +121,36 @@ function StarCanvas({
 
 export default function NightSky() {
   const dots = useMemo(() => starDotsBackground(), []);
+  const { profile } = useMe();
+  // Settings → Power Saver: keep the gradient dome, drop the GPU-hungry
+  // layers (canvases, rays, grain, dot field).
+  const powerSaver = profile?.power_saver ?? false;
 
   return (
     <div className="sky-unit" aria-hidden>
       <div className="sky-unit-mask">
         <div className="sky-ramp-morph" />
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            zIndex: 2,
-            opacity: 0.86,
-            backgroundImage: dots,
-          }}
-        />
-        <div
-          className="sky-moon"
-          style={{ width: 34, height: 34, top: "10%", left: "76.5%" }}
-        />
-        <div className="sky-rays" />
-        <div className="sky-grain" />
-        <StarCanvas seed={11} count={110} maxRadius={0.7} speed={1.1} />
-        <StarCanvas seed={47} count={60} maxRadius={1.1} speed={1.9} />
+        {!powerSaver && (
+          <>
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                zIndex: 2,
+                opacity: 0.86,
+                backgroundImage: dots,
+              }}
+            />
+            <div
+              className="sky-moon"
+              style={{ width: 34, height: 34, top: "10%", left: "76.5%" }}
+            />
+            <div className="sky-rays" />
+            <div className="sky-grain" />
+            <StarCanvas seed={11} count={110} maxRadius={0.7} speed={1.1} />
+            <StarCanvas seed={47} count={60} maxRadius={1.1} speed={1.9} />
+          </>
+        )}
       </div>
     </div>
   );

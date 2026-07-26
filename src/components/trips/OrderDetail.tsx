@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Timeline from "@/components/details/Timeline";
+import { useCurrency } from "@/components/CurrencyProvider";
 import { useToast } from "@/components/ui/Toast";
 import type { FlightOffer } from "@/lib/types";
 
@@ -27,10 +28,6 @@ interface Quote {
   refundCurrency: string | null;
 }
 
-function money(usd: number): string {
-  return `$${Math.round(usd).toLocaleString("en-US")}`;
-}
-
 export default function OrderDetail({
   order,
   snapshot,
@@ -40,6 +37,7 @@ export default function OrderDetail({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const { format: money } = useCurrency();
   const [quote, setQuote] = useState<Quote | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

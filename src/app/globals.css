@@ -172,3 +172,36 @@ body {
   outline: 2px solid var(--accent-bright);
   outline-offset: 1px;
 }
+
+/*
+ * Approximate light theme: flips the core shell vars so the extracted token
+ * system ([data-theme=light] scales in soar-theme.css) and our components
+ * agree. Some deep-dark accents remain — the dark theme is the primary look.
+ */
+:root[data-theme="light"] {
+  --background: #f4f6fb;
+  --foreground: #101623;
+  --card: rgba(255, 255, 255, 0.92);
+  --card-border: rgba(16, 22, 35, 0.1);
+  --pill: rgba(255, 255, 255, 0.85);
+  --muted: #5b6474;
+}
+:root[data-theme="light"] body {
+  background: #f4f6fb;
+}
+:root[data-theme="light"] .sky-ramp-morph {
+  opacity: 0.35;
+}
+:root[data-theme="light"] .sky-rays,
+:root[data-theme="light"] .sky-grain,
+:root[data-theme="light"] .sky-moon,
+:root[data-theme="light"] .sky-star-canvas {
+  display: none;
+}
+:root[data-theme="light"] .text-white {
+  color: #101623;
+}
+:root[data-theme="light"] .text-slate-200,
+:root[data-theme="light"] .text-slate-300 {
+  color: #3c4557;
+}

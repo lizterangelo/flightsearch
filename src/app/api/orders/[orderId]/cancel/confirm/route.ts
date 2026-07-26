@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/auth";
-import { markOrderCancelled, orderForUser } from "@/lib/db";
+import { markOrderCancelled, orderForUser } from "@/lib/data";
 import {
   duffelClient,
   duffelErrorMessage,
@@ -21,7 +21,7 @@ export async function POST(
   if (!user) return Response.json({ error: "Sign in" }, { status: 401 });
 
   const { orderId } = await ctx.params;
-  const order = orderForUser(user.id, orderId);
+  const order = await orderForUser(orderId);
   if (!order) {
     return Response.json({ error: "Order not found" }, { status: 404 });
   }
@@ -35,7 +35,7 @@ export async function POST(
     const res = await duffelClient().orderCancellations.confirm(
       parsed.data.cancellationId,
     );
-    markOrderCancelled(
+    await markOrderCancelled(
       orderId,
       res.data.refund_amount ?? null,
       res.data.refund_currency ?? null,

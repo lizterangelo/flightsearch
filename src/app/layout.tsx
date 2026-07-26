@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import AccountModal from "@/components/account/AccountModal";
 import { MeProvider } from "@/components/auth/MeProvider";
 import AppLoader from "@/components/AppLoader";
+import { CurrencyProvider } from "@/components/CurrencyProvider";
 import Header from "@/components/Header";
 import NightSky from "@/components/NightSky";
+import ThemeApplier from "@/components/ThemeApplier";
 import { ToastProvider } from "@/components/ui/Toast";
 
 const inter = Inter({
@@ -54,13 +57,17 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <AppLoader />
-        <NightSky />
         <ToastProvider>
           <MeProvider>
-            <div className="relative z-10 flex min-h-screen flex-col">
-              <Header />
-              {children}
-            </div>
+            <CurrencyProvider>
+              <ThemeApplier />
+              <NightSky />
+              <div className="relative z-10 flex min-h-screen flex-col">
+                <Header />
+                {children}
+              </div>
+              <AccountModal />
+            </CurrencyProvider>
           </MeProvider>
         </ToastProvider>
       </body>

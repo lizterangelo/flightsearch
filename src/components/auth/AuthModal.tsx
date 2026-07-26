@@ -1,17 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
 import { useMe } from "./MeProvider";
 
 /**
- * The sign-in modal: dotted-globe art, headline, and three providers.
- * "Continue with Messages" runs the phone/email OTP flow (dev builds print
- * the code to the server console and autofill it here); Google/Apple are
- * visual stand-ins unless OAuth env vars are configured.
+ * Sign-in modal: dotted-globe art, headline, and Google OAuth via Supabase.
+ * If the Google provider isn't configured on the Supabase project yet, the
+ * button surfaces the error with a hint.
  */
-
-type Step = "providers" | "identifier" | "code";
 
 function DottedGlobe() {
   // Abstract dot-grid "world" — softly masked, no real geography claimed.
@@ -45,24 +42,26 @@ function DottedGlobe() {
   );
 }
 
-function ProviderButton({
-  icon,
-  label,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
+function GoogleMark() {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex w-full cursor-pointer items-center gap-3 rounded-2xl border border-card-border bg-white/[0.03] px-5 py-3.5 text-[15px] font-semibold text-white transition hover:bg-white/[0.07]"
-    >
-      {icon}
-      {label}
-    </button>
+    <svg viewBox="0 0 48 48" className="size-5">
+      <path
+        fill="#EA4335"
+        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+      />
+      <path
+        fill="#4285F4"
+        d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
+      />
+      <path
+        fill="#34A853"
+        d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+      />
+    </svg>
   );
 }
 
@@ -75,24 +74,15 @@ export default function AuthModal({
   onClose: () => void;
   headline?: string;
 }) {
-  const { refresh } = useMe();
+  const { signInWithGoogle } = useMe();
   const toast = useToast();
-  const [step, setStep] = useState<Step>("providers");
-  const [identifier, setIdentifier] = useState("");
-  const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const codeRef = useRef<HTMLInputElement>(null);
 
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open) {
-      setStep("providers");
-      setIdentifier("");
-      setCode("");
-      setError(null);
-    }
+    if (open) setError(null);
   }
 
   useEffect(() => {
@@ -106,54 +96,20 @@ export default function AuthModal({
 
   if (!open) return null;
 
-  const start = async () => {
+  const google = async () => {
     setBusy(true);
     setError(null);
-    try {
-      const res = await fetch("/api/auth/start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier }),
-      });
-      const body = (await res.json()) as {
-        error?: string;
-        devCode?: string;
-        identifier?: string;
-      };
-      if (!res.ok) throw new Error(body.error ?? "Couldn't send a code");
-      if (body.identifier) setIdentifier(body.identifier);
-      setStep("code");
-      if (body.devCode) {
-        setCode(body.devCode);
-        toast("Dev build: code autofilled");
-      }
-      setTimeout(() => codeRef.current?.focus(), 0);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
+    const message = await signInWithGoogle();
+    if (message) {
       setBusy(false);
+      setError(
+        /provider|not.*enabled|unsupported/i.test(message)
+          ? "Google sign-in isn't enabled on the Supabase project yet — add the Google provider in Authentication → Providers."
+          : message,
+      );
+      toast("Google sign-in failed");
     }
-  };
-
-  const verify = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/auth/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier, code }),
-      });
-      const body = (await res.json()) as { error?: string };
-      if (!res.ok) throw new Error(body.error ?? "Verification failed");
-      await refresh();
-      onClose();
-      toast("You're in — welcome aboard");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
+    // On success the browser redirects to Google.
   };
 
   return (
@@ -162,7 +118,12 @@ export default function AuthModal({
         className="fixed inset-0 animate-[soar-backdrop-in_.24s_ease_both] bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div role="dialog" aria-modal="true" aria-label="Sign in" className="relative w-full max-w-md animate-[soar-dialog-in_.26s_cubic-bezier(.22,1,.36,1)_both] overflow-hidden rounded-3xl border border-card-border bg-[#0a1122] shadow-2xl shadow-black/60">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Sign in"
+        className="relative w-full max-w-md animate-[soar-dialog-in_.26s_cubic-bezier(.22,1,.36,1)_both] overflow-hidden rounded-3xl border border-card-border bg-[#0a1122] shadow-2xl shadow-black/60"
+      >
         <button
           type="button"
           onClick={onClose}
@@ -171,24 +132,6 @@ export default function AuthModal({
         >
           ✕
         </button>
-        {step !== "providers" && (
-          <button
-            type="button"
-            onClick={() => setStep(step === "code" ? "identifier" : "providers")}
-            aria-label="Back"
-            className="absolute top-4 left-4 z-10 flex size-8 cursor-pointer items-center justify-center rounded-full bg-white/10 text-slate-300 transition hover:bg-white/20 hover:text-white"
-          >
-            <svg viewBox="0 0 20 20" fill="none" className="size-4">
-              <path
-                d="M12.5 4.5L7 10l5.5 5.5"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-        )}
 
         <DottedGlobe />
 
@@ -198,124 +141,32 @@ export default function AuthModal({
             {headline}
           </h2>
 
-          {step === "providers" && (
-            <div className="mt-6 space-y-3">
-              <ProviderButton
-                label="Continue with Messages"
-                icon={
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src="/imessage-logo.png"
-                    alt=""
-                    className="size-7 rounded-lg object-contain"
-                  />
-                }
-                onClick={() => setStep("identifier")}
-              />
-              <ProviderButton
-                label="Continue with Google"
-                icon={
-                  <span className="flex size-7 items-center justify-center rounded-lg bg-white text-[13px] font-black text-[#4285F4]">
-                    G
-                  </span>
-                }
-                onClick={() =>
-                  toast("Google sign-in isn't configured in this build")
-                }
-              />
-              <ProviderButton
-                label="Continue with Apple"
-                icon={
-                  <span className="flex size-7 items-center justify-center rounded-lg bg-white text-black">
-                    <svg viewBox="0 0 20 20" fill="currentColor" className="size-4">
-                      <path d="M13.5 10.6c0-1.6 1.3-2.4 1.4-2.5-.8-1.1-2-1.3-2.4-1.3-1-.1-2 .6-2.5.6s-1.3-.6-2.2-.6c-1.1 0-2.2.7-2.8 1.7-1.2 2-.3 5.1.9 6.8.6.8 1.2 1.7 2.1 1.7.9 0 1.2-.5 2.2-.5s1.3.5 2.2.5 1.5-.8 2-1.6c.6-.9.9-1.8.9-1.9-.1 0-1.8-.7-1.8-2.9zM11.9 5.6c.5-.6.8-1.4.7-2.2-.7 0-1.6.5-2.1 1.1-.4.5-.8 1.3-.7 2.1.8.1 1.6-.4 2.1-1z" />
-                    </svg>
-                  </span>
-                }
-                onClick={() =>
-                  toast("Apple sign-in isn't configured in this build")
-                }
-              />
-            </div>
-          )}
-
-          {step === "identifier" && (
-            <form
-              className="mt-6"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!busy) void start();
-              }}
+          <div className="mt-6">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void google()}
+              className="flex w-full cursor-pointer items-center justify-center gap-3 rounded-2xl border border-card-border bg-white px-5 py-3.5 text-[15px] font-semibold text-[#0a1122] transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <div className="text-lg font-semibold text-white">
-                Enter your phone number
-              </div>
-              <div className="mt-3 flex items-center gap-2 rounded-2xl border border-card-border bg-white/[0.04] p-1.5 pl-4 focus-within:border-accent/60">
-                <input
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder="(555) 123-4567 or email"
-                  autoFocus
-                  className="min-w-0 flex-1 bg-transparent text-[15px] text-white outline-none placeholder:text-muted/70"
-                />
-                <button
-                  type="submit"
-                  disabled={busy || identifier.trim().length < 5}
-                  className="cursor-pointer rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-[#0a1122] transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {busy ? "…" : "Continue"}
-                </button>
-              </div>
-              <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px] text-muted">
-                <span>✓ Cheaper than Google Flights</span>
-                <span>✓ Book in seconds</span>
-                <span>✓ Trip updates in your inbox</span>
-                <span>✓ Refund guarantees</span>
-              </div>
-            </form>
-          )}
+              <GoogleMark />
+              {busy ? "Opening Google…" : "Continue with Google"}
+            </button>
+          </div>
 
-          {step === "code" && (
-            <form
-              className="mt-6"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!busy) void verify();
-              }}
-            >
-              <div className="text-lg font-semibold text-white">
-                Enter the 6-digit code
-              </div>
-              <div className="mt-1 text-sm text-muted">
-                Sent to {identifier}{" "}
-                <span className="text-slate-400">
-                  (dev builds print it in the server console)
-                </span>
-              </div>
-              <div className="mt-3 flex items-center gap-2">
-                <input
-                  ref={codeRef}
-                  value={code}
-                  onChange={(e) =>
-                    setCode(e.target.value.replace(/\D/g, "").slice(0, 6))
-                  }
-                  inputMode="numeric"
-                  placeholder="123456"
-                  className="w-40 rounded-2xl border border-card-border bg-white/[0.04] px-4 py-3 text-center font-mono text-xl tracking-[0.3em] text-white outline-none focus:border-accent/60"
-                />
-                <button
-                  type="submit"
-                  disabled={busy || code.length !== 6}
-                  className="cursor-pointer rounded-full bg-accent px-6 py-3 font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {busy ? "Verifying…" : "Verify"}
-                </button>
-              </div>
-            </form>
-          )}
+          <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px] text-muted">
+            <span>✓ Cheaper than Google Flights</span>
+            <span>✓ Book in seconds</span>
+            <span>✓ Trips synced to your account</span>
+            <span>✓ Refund guarantees</span>
+          </div>
 
           {error && (
-            <div key={error} className="mt-4 animate-[soar-shake_.3s_ease_both] text-sm text-rose-300">{error}</div>
+            <div
+              key={error}
+              className="mt-4 animate-[soar-shake_.3s_ease_both] rounded-xl border border-rose-400/30 bg-rose-400/10 px-4 py-2.5 text-sm text-rose-200"
+            >
+              {error}
+            </div>
           )}
 
           <div className="mt-6 text-center text-xs text-muted">

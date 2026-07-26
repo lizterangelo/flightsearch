@@ -15,7 +15,9 @@ import LoadingBar from "@/components/results/LoadingBar";
 import ResultsHeader from "@/components/results/ResultsHeader";
 import SkeletonCard from "@/components/results/SkeletonCard";
 import SortMenu from "@/components/results/SortMenu";
+import SummaryCards from "@/components/results/SummaryCards";
 import SearchBar, { selectionsFromQuery } from "@/components/search/SearchBar";
+import { useMe } from "@/components/auth/MeProvider";
 import { useFlightSearch } from "@/hooks/useFlightSearch";
 import type { SortMode } from "@/lib/rank";
 import type { FlightOffer } from "@/lib/types";
@@ -54,6 +56,7 @@ function FlightsContent({
   }, [origin, destination, slug, rawParams]);
 
   const router = useRouter();
+  const { profile } = useMe();
   const query = parsed?.query ?? null;
   const offerId = parsed?.offerId;
   const [sortMode, setSortMode] = useState<SortMode>("best");
@@ -221,6 +224,14 @@ function FlightsContent({
           </div>
 
           {query.flexDays ? <FlexDateStrip query={query} /> : null}
+
+          {(profile?.summary_cards ?? true) && !isStreaming && (
+            <SummaryCards
+              offers={filtered}
+              sortMode={sortMode}
+              onSort={setSortMode}
+            />
+          )}
 
           <div className="space-y-4">
             {visible.map((offer, i) => (

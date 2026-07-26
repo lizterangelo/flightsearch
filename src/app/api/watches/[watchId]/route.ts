@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { getSessionUser } from "@/lib/auth";
-import { deleteWatch } from "@/lib/db";
+import { supabaseServer } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,10 +13,7 @@ export async function DELETE(
   const user = await getSessionUser();
   if (!user) return Response.json({ error: "Sign in" }, { status: 401 });
   const { watchId } = await ctx.params;
-  const id = Number(watchId);
-  if (!Number.isInteger(id)) {
-    return Response.json({ error: "Invalid id" }, { status: 400 });
-  }
-  deleteWatch(user.id, id);
+  const db = await supabaseServer();
+  await db.from("watches").delete().eq("id", watchId);
   return Response.json({ ok: true });
 }

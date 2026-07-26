@@ -1,5 +1,5 @@
 import { addDaysYmd, todayLocalYmd } from "./dates";
-import { calendarWindow, upsertObservation } from "./db";
+import { calendarWindow, upsertObservation } from "./data";
 import { runSearchStream } from "./duffel/search";
 import { flags } from "./env";
 import type { Cabin, FlightOffer } from "./types";
@@ -44,7 +44,7 @@ export function recordObservations(offers: FlightOffer[]): void {
   }
   for (const row of best.values()) {
     try {
-      upsertObservation({
+      void upsertObservation({
         origin: row.origin,
         destination: row.destination,
         departDate: row.date,
@@ -84,15 +84,15 @@ export interface CalendarPayload {
 
 const THRESHOLD = 0.12;
 
-export function buildCalendar(params: {
+export async function buildCalendar(params: {
   origin: string;
   destination: string;
   cabin: string;
   start: string;
   end: string;
   scheduled: boolean;
-}): CalendarPayload {
-  const rows = calendarWindow(params);
+}): Promise<CalendarPayload> {
+  const rows = await calendarWindow(params);
   const average =
     rows.length > 0
       ? rows.reduce((sum, r) => sum + r.amount_usd, 0) / rows.length

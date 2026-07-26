@@ -11,21 +11,25 @@ order management with cancellations, and price watches.
 > Test mode only: sandbox fares, unlimited test balance, no real tickets.
 
 Built with Next.js 16 (App Router, Turbopack), TypeScript, Tailwind v4,
-better-sqlite3, and the official `@duffel/api` SDK. No scrapers, no other
-data providers.
+Supabase (Postgres + Google auth), and the official `@duffel/api` SDK.
+No scrapers, no other data providers.
 
 ## Quick start
 
 ```bash
 npm install
-cp .env.local.example .env    # set DUFFEL_API_TOKEN=duffel_test_...
+cp .env.local.example .env    # DUFFEL_API_TOKEN + the two Supabase vars
 node scripts/fetch-airports.mjs   # regenerate airport/metro datasets (optional; committed)
 npm run dev
 ```
 
-Open http://localhost:3000, search something like `LHR → JFK`, and sign in
-with any phone/email — the 6-digit code prints in the dev-server console
-and autofills in development.
+Open http://localhost:3000 and search something like `LHR → JFK`.
+Sign-in is **Google via Supabase Auth**: enable the Google provider in the
+Supabase dashboard (Authentication → Providers → Google) with an OAuth
+client whose redirect URI is
+`https://<project-ref>.supabase.co/auth/v1/callback`, and add
+`http://localhost:3000/**` to Authentication → URL Configuration →
+Redirect URLs.
 
 ## How it works
 
@@ -45,11 +49,11 @@ and autofills in development.
   amenities (Duffel data, aircraft-table fallback), bags steppers, Duffel
   **seat maps** (reliable on Duffel Airways `ZZ`), Protect Flight (5%,
   $19–$149), share link, Watch.
-- **Auth** — phone/email OTP (printed to console in dev), sha256 session
-  tokens in SQLite, 30-day sliding cookie.
+- **Auth** — Google OAuth via Supabase; sessions are Supabase cookies and
+  every table is row-level-secured to `auth.uid()`.
 - **Checkout** — passenger forms (passport block when the offer requires
   identity documents), seats/bags re-priced server-side from the fresh
-  offer, balance payment, order + offer snapshot stored in `.data/soar.db`.
+  offer, balance payment, order + offer snapshot stored in Supabase.
 - **My Flights** — upcoming/past orders, order detail with itinerary,
   cancellation via Duffel quote → confirm (Protect bookings message the
   full-minus-fee refund), price watches with visit-triggered re-pricing.
@@ -91,6 +95,11 @@ fallback are small hand-maintained tables in `src/data/`.
 
 ## Persistence
 
-Everything lives in `.data/soar.db` (SQLite, WAL): users, sessions, OTP
-codes, orders (+offer snapshots), watches, price observations. Delete the
-directory to reset the world.
+Everything lives in the Supabase project (`soar-clone`): profiles (contact,
+travel documents, preferences, points, referral credit), friends, loyalty
+programmes, a display-only card vault (brand + last4), orders with offer
+snapshots, watches, price observations, and feedback — all behind RLS.
+The account modal (avatar → `#/account/...`) mirrors the original's nine
+tabs: Account, Details, Loyalty & Points, Friends, Notifications, Billing,
+Receipts, Beta, and Settings (theme, display currency, Confirm Before
+Booking, Summary Cards, Power Saver, account deletion).

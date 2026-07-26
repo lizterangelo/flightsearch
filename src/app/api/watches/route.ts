@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { getSessionUser } from "@/lib/auth";
-import { listWatches, markWatchesSeen, upsertWatch } from "@/lib/db";
+import { supabaseServer } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,8 +17,21 @@ const CreateWatch = z.object({
 export async function GET(): Promise<Response> {
   const user = await getSessionUser();
   if (!user) return Response.json({ error: "Sign in" }, { status: 401 });
-  const watches = listWatches(user.id);
-  markWatchesSeen(user.id);
+  const db = await supabaseServer();
+  const { data } = await db
+    .from("watches")
+    .select("*")
+    .order("created_at", { ascending: false });
+  await db.from("watches").update({ seen: true }).eq("seen", false);
+  const watches = (data ?? []) as {
+    id: string;
+    label: string;
+    search_url: string;
+    cabin: string;
+    last_price_usd: number | null;
+    last_checked_at: string | null;
+    delta_usd: number;
+  }[];
   return Response.json({
     watches: watches.map((w) => ({
       id: w.id,
@@ -40,13 +53,21 @@ export async function POST(req: Request): Promise<Response> {
   if (!parsed.success) {
     return Response.json({ error: "Invalid watch" }, { status: 400 });
   }
-  upsertWatch({
-    userId: user.id,
-    itineraryKey: parsed.data.itineraryKey,
-    searchUrl: parsed.data.searchUrl,
-    label: parsed.data.label,
-    cabin: parsed.data.cabin,
-    priceUSD: parsed.data.priceUSD,
-  });
+  const db = await supabaseServer();
+  const { error } = await db.from("watches").upsert(
+    {
+      user_id: user.id,
+      itinerary_key: parsed.data.itineraryKey,
+      search_url: parsed.data.searchUrl,
+      label: parsed.data.label,
+      cabin: parsed.data.cabin,
+      last_price_usd: parsed.data.priceUSD,
+      last_checked_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,itinerary_key" },
+  );
+  if (error) {
+    return Response.json({ error: error.message }, { status: 500 });
+  }
   return Response.json({ ok: true });
 }

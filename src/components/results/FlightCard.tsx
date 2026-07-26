@@ -1,5 +1,6 @@
 "use client";
 
+import { useCurrency } from "@/components/CurrencyProvider";
 import type { FlightOffer } from "@/lib/types";
 import AirlineLogo from "./AirlineLogo";
 import { BestBadge } from "./Badges";
@@ -15,6 +16,7 @@ export default function FlightCard({
   /** Open the details view (card body click AND the Book pill). */
   onOpen: (offer: FlightOffer) => void;
 }) {
+  const { format: money } = useCurrency();
   const tripLabel = offer.slices.length > 1 ? "round-trip" : "one-way";
 
   return (
@@ -56,7 +58,7 @@ export default function FlightCard({
         <div className="flex w-36 shrink-0 flex-col items-end gap-3 text-right">
           <div>
             <div className="text-[28px] leading-9 font-bold text-white">
-              ${Math.round(offer.displayUSD).toLocaleString("en-US")}
+              {money(offer.displayUSD)}
             </div>
             <div className="text-xs tracking-wide text-muted">{tripLabel}</div>
           </div>

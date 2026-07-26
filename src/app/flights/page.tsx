@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
-import { listOrdersForUser, type OrderRow } from "@/lib/db";
+import { listOrdersForUser, type OrderRow } from "@/lib/data";
 import type { FlightOffer } from "@/lib/types";
 import OrderCard from "@/components/trips/OrderCard";
 import WatchList from "@/components/trips/WatchList";
@@ -9,12 +9,8 @@ import WatchList from "@/components/trips/WatchList";
 export const dynamic = "force-dynamic";
 
 function firstDeparture(row: OrderRow): string {
-  try {
-    const snapshot = JSON.parse(row.offer_snapshot) as FlightOffer;
-    return snapshot.slices?.[0]?.departure ?? "9999";
-  } catch {
-    return "9999";
-  }
+  const snapshot = row.offer_snapshot as FlightOffer;
+  return snapshot?.slices?.[0]?.departure ?? "9999";
 }
 
 /** My Flights: upcoming and past orders for the signed-in user. */
@@ -22,7 +18,7 @@ export default async function MyFlightsPage() {
   const user = await getSessionUser();
   if (!user) redirect("/");
 
-  const orders = listOrdersForUser(user.id);
+  const orders = await listOrdersForUser();
   const now = new Date().toISOString().slice(0, 16);
   const upcoming = orders.filter(
     (o) => o.status === "confirmed" && firstDeparture(o) >= now,

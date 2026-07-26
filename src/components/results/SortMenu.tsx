@@ -1,5 +1,6 @@
 "use client";
 
+import { useCurrency } from "@/components/CurrencyProvider";
 import { formatDuration } from "@/lib/format";
 import { sortOffers, type SortMode } from "@/lib/rank";
 import { totalDurationMinutes, type FlightOffer } from "@/lib/types";
@@ -81,6 +82,7 @@ export default function SortMenu({
   onChange: (mode: SortMode) => void;
 }) {
   const active = MODES.find((m) => m.mode === sortMode)!;
+  const { format: money } = useCurrency();
 
   return (
     <Dropdown
@@ -111,7 +113,7 @@ export default function SortMenu({
                     <span className="block font-medium">{label}</span>
                     {top && (
                       <span className="block text-xs text-muted">
-                        ${Math.round(top.displayUSD).toLocaleString("en-US")} ·{" "}
+                        {money(top.displayUSD)} ·{" "}
                         {formatDuration(totalDurationMinutes(top))}
                       </span>
                     )}

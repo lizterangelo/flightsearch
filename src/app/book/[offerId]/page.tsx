@@ -9,7 +9,9 @@ import SeatMapModal, {
   type SeatSelection,
 } from "@/components/details/SeatMapModal";
 import { protectFeeUSD } from "@/components/details/DetailsPanel";
+import { useCurrency } from "@/components/CurrencyProvider";
 import { useToast } from "@/components/ui/Toast";
+import { supabaseBrowser } from "@/lib/supabase/client";
 import { formatDuration, formatTime } from "@/lib/format";
 import type { FlightOffer, OfferService } from "@/lib/types";
 
@@ -46,10 +48,6 @@ const input =
   "w-full rounded-xl border border-card-border bg-white/[0.04] px-3.5 py-2.5 text-[15px] text-white outline-none placeholder:text-muted/60 focus:border-accent/60";
 const label = "mb-1.5 block text-xs font-medium text-muted";
 
-function money(usd: number): string {
-  return `$${Math.round(usd).toLocaleString("en-US")}`;
-}
-
 const TYPE_LABEL: Record<string, string> = {
   adult: "Adult",
   child: "Child",
@@ -62,7 +60,8 @@ export default function CheckoutPage({
   const { offerId } = use(params);
   const router = useRouter();
   const toast = useToast();
-  const { me, loaded } = useMe();
+  const { me, loaded, profile } = useMe();
+  const { format: money } = useCurrency();
 
   const [data, setData] = useState<OfferResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +72,10 @@ export default function CheckoutPage({
   const [seats, setSeats] = useState<SeatSelection[]>([]);
   const [seatModalOpen, setSeatModalOpen] = useState(false);
   const [paying, setPaying] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [friends, setFriends] = useState<
+    { id: string; given_name: string; family_name: string; born_on: string | null; gender: string | null; email: string | null; phone: string | null }[]
+  >([]);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
 
   // Carry over services/protect chosen on the details panel via query params.
@@ -139,6 +142,72 @@ export default function CheckoutPage({
     };
   }, [offerId]);
 
+  // Prefill passenger 1 from saved details (deferred a tick — same
+  // no-sync-setState-in-effect pattern as the query-param seeding above).
+  useEffect(() => {
+    if (!me || !profile || forms.length === 0) return;
+    const t = setTimeout(() => {
+      setForms((prev) => {
+        if (!prev[0] || prev[0].given_name) return prev;
+        const [given, ...rest] = (
+          profile.legal_name ?? profile.nickname ?? me.name ?? ""
+        ).split(" ");
+        return prev.map((f, i) =>
+          i === 0
+            ? {
+                ...f,
+                given_name: given ?? "",
+                family_name: rest.join(" "),
+                born_on: profile.born_on ?? "",
+                email: me.email ?? "",
+                phone_number: profile.phone ?? "",
+                passport_number: profile.passport_number ?? "",
+                passport_country: profile.passport_country ?? "",
+                passport_expiry: profile.passport_expiry ?? "",
+              }
+            : f,
+        );
+      });
+    }, 0);
+    return () => clearTimeout(t);
+  }, [me, profile, forms.length]);
+
+  useEffect(() => {
+    if (!me) return;
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      const { data: rows } = await supabaseBrowser()
+        .from("friends")
+        .select("*")
+        .order("created_at");
+      if (!cancelled && rows) setFriends(rows as typeof friends);
+    }, 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [me]);
+
+  const fillFromFriend = (formIndex: number, friendId: string) => {
+    const friend = friends.find((f) => f.id === friendId);
+    if (!friend) return;
+    setForms((prev) =>
+      prev.map((f, i) =>
+        i === formIndex
+          ? {
+              ...f,
+              given_name: friend.given_name,
+              family_name: friend.family_name,
+              born_on: friend.born_on ?? f.born_on,
+              gender: friend.gender ?? f.gender,
+              email: friend.email ?? f.email,
+              phone_number: friend.phone ?? f.phone_number,
+            }
+          : f,
+      ),
+    );
+  };
+
   const offer = data?.offer ?? null;
   const bagServices = useMemo(
     () => (data?.services ?? []).filter((s) => s.type === "baggage"),
@@ -191,6 +260,21 @@ export default function CheckoutPage({
           .map(([id, quantity]) => ({ id, quantity })),
         ...seats.map((s) => ({ id: s.serviceId, quantity: 1 })),
       ];
+      // Attach saved loyalty programmes that match this itinerary's carriers.
+      const carriers = new Set(
+        offer.slices.flatMap((s) => s.segments.map((seg) => seg.carrierCode)),
+      );
+      const { data: loyaltyRows } = await supabaseBrowser()
+        .from("loyalty_programmes")
+        .select("airline_iata, account_number");
+      const loyaltyAccounts = (
+        (loyaltyRows ?? []) as { airline_iata: string; account_number: string }[]
+      )
+        .filter((l) => carriers.has(l.airline_iata))
+        .map((l) => ({
+          airline_iata_code: l.airline_iata,
+          account_number: l.account_number,
+        }));
       const res = await fetch("/api/book", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -219,6 +303,7 @@ export default function CheckoutPage({
               : {}),
           })),
           services,
+          loyaltyAccounts,
           protect,
           protectFeeUSD: protect ? protectFee : 0,
           displayTotalUSD: totalUSD,
@@ -362,11 +447,28 @@ export default function CheckoutPage({
               key={form.id}
               className="mt-5 rounded-3xl border border-card-border bg-card p-6"
             >
-              <div className="mb-4 text-sm font-semibold tracking-wide text-slate-300">
-                Passenger {i + 1} ·{" "}
-                <span className="text-muted">
-                  {TYPE_LABEL[form.type] ?? form.type}
-                </span>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <div className="text-sm font-semibold tracking-wide text-slate-300">
+                  Passenger {i + 1} ·{" "}
+                  <span className="text-muted">
+                    {TYPE_LABEL[form.type] ?? form.type}
+                  </span>
+                </div>
+                {friends.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs text-muted">Fill from:</span>
+                    {friends.map((friend) => (
+                      <button
+                        key={friend.id}
+                        type="button"
+                        onClick={() => fillFromFriend(i, friend.id)}
+                        className="cursor-pointer rounded-full border border-card-border bg-pill/70 px-2.5 py-1 text-xs font-medium text-slate-200 transition hover:text-white"
+                      >
+                        {friend.given_name}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-6">
                 <div className="col-span-1">
@@ -696,7 +798,11 @@ export default function CheckoutPage({
             <button
               type="button"
               disabled={!formValid || paying}
-              onClick={() => void pay()}
+              onClick={() => {
+                // Settings → Confirm Before Booking: one last look first.
+                if (profile?.confirm_before_booking) setConfirmOpen(true);
+                else void pay();
+              }}
               className="mt-5 w-full cursor-pointer rounded-full bg-accent px-6 py-3.5 font-semibold text-white shadow-[0_0_24px_rgba(46,107,255,0.5)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {paying ? "Booking…" : `Pay ${money(totalUSD)}`}
@@ -708,6 +814,53 @@ export default function CheckoutPage({
           </div>
         </div>
       </div>
+
+      {confirmOpen && offer && (
+        <div className="fixed inset-0 z-[95] flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 animate-[soar-backdrop-in_.24s_ease_both] bg-black/60 backdrop-blur-sm"
+            onClick={() => setConfirmOpen(false)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Confirm booking"
+            className="relative w-full max-w-sm animate-[soar-dialog-in_.26s_cubic-bezier(.22,1,.36,1)_both] rounded-3xl border border-card-border bg-[#0a1122] p-6 shadow-2xl shadow-black/60"
+          >
+            <h2 className="text-xl font-bold text-white">One last look</h2>
+            <p className="mt-2 text-sm leading-relaxed text-slate-300">
+              {offer.slices[0]?.originCity}{" "}
+              {offer.slices.length > 1 ? "⇄" : "→"}{" "}
+              {offer.slices[0]?.destinationCity} ·{" "}
+              {forms.length} passenger{forms.length > 1 ? "s" : ""}
+              {protect ? " · Protect Flight" : ""}
+            </p>
+            <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-slate-200">
+              Paying <b className="text-white">{money(totalUSD)}</b> from the
+              Duffel test balance.
+            </div>
+            <div className="mt-5 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmOpen(false);
+                  void pay();
+                }}
+                className="flex-1 cursor-pointer rounded-full bg-accent py-3 font-semibold text-white transition hover:brightness-110"
+              >
+                Looks good — pay
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmOpen(false)}
+                className="cursor-pointer rounded-full border border-card-border bg-pill/80 px-5 py-3 font-semibold text-slate-200"
+              >
+                Back
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <SeatMapModal
         open={seatModalOpen}

@@ -1,4 +1,4 @@
-import { recordWatchPrice, staleWatches, type WatchRow } from "./db";
+import { recordWatchPrice, staleWatchesForUser, type WatchRow } from "./data";
 import { runSearchStream } from "./duffel/search";
 import { itineraryKeyFor, parseSearchQuery } from "./types";
 import type { FlightOffer } from "./types";
@@ -49,7 +49,7 @@ async function refreshWatch(watch: WatchRow): Promise<void> {
   const exact = offers.find((o) => itineraryKeyFor(o) === watch.itinerary_key);
   // Fall back to the cheapest offer on the route as a proxy price.
   const price = exact?.displayUSD ?? Math.min(...offers.map((o) => o.displayUSD));
-  recordWatchPrice(watch.id, Math.round(price));
+  await recordWatchPrice(watch.id, Math.round(price));
 }
 
 const STALE_MINUTES = 30;
@@ -61,7 +61,7 @@ export async function refreshStaleWatches(): Promise<number> {
   if (refreshInFlight) return 0;
   refreshInFlight = true;
   try {
-    const stale = staleWatches(MAX_PER_REFRESH, STALE_MINUTES);
+    const stale = await staleWatchesForUser(MAX_PER_REFRESH, STALE_MINUTES);
     for (const watch of stale) {
       await refreshWatch(watch);
     }

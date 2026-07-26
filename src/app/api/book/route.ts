@@ -7,7 +7,7 @@ import {
   duffelTestMode,
 } from "@/lib/duffel/client";
 import { mapDuffelOffer } from "@/lib/duffel/map";
-import { insertOrder } from "@/lib/db";
+import { addPoints, insertOrder } from "@/lib/data";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,6 +47,15 @@ const BookRequest = z.object({
     .array(z.object({ id: z.string().min(1), quantity: z.number().int().min(1).max(9) }))
     .max(30)
     .default([]),
+  loyaltyAccounts: z
+    .array(
+      z.object({
+        airline_iata_code: z.string().regex(/^[A-Z0-9]{2}$/),
+        account_number: z.string().min(2).max(40),
+      }),
+    )
+    .max(10)
+    .default([]),
   protect: z.boolean().default(false),
   protectFeeUSD: z.number().min(0).max(500).default(0),
   displayTotalUSD: z.number().min(0),
@@ -79,8 +88,15 @@ export async function POST(req: Request): Promise<Response> {
       { status: 400 },
     );
   }
-  const { offerId, passengers, services, protect, protectFeeUSD, displayTotalUSD } =
-    parsed.data;
+  const {
+    offerId,
+    passengers,
+    services,
+    loyaltyAccounts,
+    protect,
+    protectFeeUSD,
+    displayTotalUSD,
+  } = parsed.data;
 
   try {
     const duffel = duffelClient();
@@ -151,7 +167,12 @@ export async function POST(req: Request): Promise<Response> {
           currency: offer.total_currency,
         },
       ],
-      passengers,
+      // Loyalty programmes belong to the account holder — passenger 1.
+      passengers: passengers.map((p, i) =>
+        i === 0 && loyaltyAccounts.length > 0
+          ? { ...p, loyalty_programme_accounts: loyaltyAccounts }
+          : p,
+      ),
       metadata: {
         protect: protect ? "1" : "0",
         protect_fee_usd: String(protectFeeUSD),
@@ -160,7 +181,7 @@ export async function POST(req: Request): Promise<Response> {
     });
 
     const snapshot = mapDuffelOffer(offer, "booked");
-    insertOrder({
+    await insertOrder({
       duffelOrderId: order.data.id,
       userId: user.id,
       bookingReference: order.data.booking_reference,
@@ -171,9 +192,11 @@ export async function POST(req: Request): Promise<Response> {
         toUSD(Number(amount), offer.total_currency ?? "USD"),
       protect,
       protectFeeUSD,
-      offerSnapshot: JSON.stringify(snapshot ?? {}),
+      offerSnapshot: snapshot,
       liveMode: !duffelTestMode(),
     });
+    // Booking reward: a point per display dollar.
+    await addPoints(user.id, Math.max(0, Math.floor(displayTotalUSD)));
 
     return Response.json({
       orderId: order.data.id,

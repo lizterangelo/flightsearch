@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
-import { orderForUser } from "@/lib/db";
+import { orderForUser } from "@/lib/data";
 import type { FlightOffer } from "@/lib/types";
 import OrderDetail from "@/components/trips/OrderDetail";
 
@@ -14,16 +14,11 @@ export default async function OrderPage({
   if (!user) redirect("/");
 
   const { orderId } = await params;
-  const order = orderForUser(user.id, orderId);
+  const order = await orderForUser(orderId);
   if (!order) notFound();
 
-  let snapshot: FlightOffer | null = null;
-  try {
-    const parsed = JSON.parse(order.offer_snapshot) as FlightOffer;
-    snapshot = parsed?.slices?.length ? parsed : null;
-  } catch {
-    snapshot = null;
-  }
+  const parsed = order.offer_snapshot as FlightOffer;
+  const snapshot = parsed?.slices?.length ? parsed : null;
 
   return (
     <OrderDetail
@@ -32,9 +27,9 @@ export default async function OrderPage({
         bookingReference: order.booking_reference,
         status: order.status,
         displayTotalUSD: order.display_total_usd,
-        protect: order.protect === 1,
+        protect: order.protect,
         protectFeeUSD: order.protect_fee_usd,
-        liveMode: order.live_mode === 1,
+        liveMode: order.live_mode,
         cancelledAt: order.cancelled_at,
         refundAmount: order.refund_amount,
         refundCurrency: order.refund_currency,

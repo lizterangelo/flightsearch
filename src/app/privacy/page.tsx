@@ -10,12 +10,18 @@ export default function PrivacyPage() {
       <h1 className="mt-6 text-3xl font-bold text-white">Privacy Policy</h1>
       <p className="mt-1 text-sm text-muted">Demo build — not a real product.</p>
 
+      <h2 className={h2}>Sign-in</h2>
+      <p className={p}>
+        Sign-in uses your Google account via Supabase Auth. We receive your
+        name, email, and avatar — never your password.
+      </p>
+
       <h2 className={h2}>What we store</h2>
       <p className={p}>
-        Everything lives in a local SQLite file on the machine running the
-        app: your sign-in identifier, session tokens (hashed), test bookings,
-        price watches, and cached fare observations. Nothing is sent to any
-        analytics service.
+        Your profile, saved travelers, test bookings, watches, and cached
+        fare observations live in a Supabase Postgres project owned by
+        whoever runs this build, with row-level security scoping every row
+        to your account. Nothing is sent to any analytics service.
       </p>
 
       <h2 className={h2}>What Duffel sees</h2>
@@ -34,8 +40,8 @@ export default function PrivacyPage() {
 
       <h2 className={h2}>Deleting data</h2>
       <p className={p}>
-        Delete the app&apos;s .data directory and every account, booking, and
-        watch on this machine is gone.
+        Settings → Delete account removes your auth user and cascades away
+        every row you own — profile, bookings, friends, cards, and watches.
       </p>
     </main>
   );

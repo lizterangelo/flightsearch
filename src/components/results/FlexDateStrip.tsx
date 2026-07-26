@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useCurrency } from "@/components/CurrencyProvider";
 import { addDaysYmd } from "@/lib/dates";
 import type { SearchQuery } from "@/lib/types";
 import { buildFlightsPath } from "@/lib/urls";
@@ -35,6 +36,7 @@ function shortDay(ymd: string): string {
 
 export default function FlexDateStrip({ query }: { query: SearchQuery }) {
   const router = useRouter();
+  const { format: money } = useCurrency();
   const [prices, setPrices] = useState<Map<string, CalendarDay>>(
     () => new Map(),
   );
@@ -115,7 +117,7 @@ export default function FlexDateStrip({ query }: { query: SearchQuery }) {
             <div
               className={`text-[13px] font-bold ${info ? TIER_TEXT[info.tier] : "text-muted"}`}
             >
-              {info ? `$${info.amount.toLocaleString("en-US")}` : "—"}
+              {info ? money(info.amount) : "—"}
             </div>
           </button>
         );

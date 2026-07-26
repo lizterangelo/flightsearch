@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import AuthModal from "@/components/auth/AuthModal";
+import { useCurrency } from "@/components/CurrencyProvider";
 import { useMe } from "@/components/auth/MeProvider";
 import { useToast } from "@/components/ui/Toast";
 import Popover from "@/components/ui/Popover";
@@ -42,10 +43,6 @@ function ConditionRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function money(usd: number): string {
-  return `$${Math.round(usd).toLocaleString("en-US")}`;
-}
-
 const dotted =
   "cursor-pointer border-b border-dotted border-white/40 text-slate-300 transition hover:text-white";
 
@@ -70,6 +67,7 @@ export default function DetailsPanel({
   const router = useRouter();
   const toast = useToast();
   const { me } = useMe();
+  const { format: money } = useCurrency();
 
   const [fetched, setFetched] = useState<OfferResponse | null>(null);
   const [error, setError] = useState<string | null>(null);

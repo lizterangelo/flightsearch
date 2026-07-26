@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { getSessionUser } from "@/lib/auth";
-import { orderForUser } from "@/lib/db";
+import { orderForUser } from "@/lib/data";
 import {
   duffelClient,
   duffelErrorMessage,
@@ -21,7 +21,7 @@ export async function POST(
   if (!user) return Response.json({ error: "Sign in" }, { status: 401 });
 
   const { orderId } = await ctx.params;
-  const order = orderForUser(user.id, orderId);
+  const order = await orderForUser(orderId);
   if (!order) {
     return Response.json({ error: "Order not found" }, { status: 404 });
   }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useCurrency } from "@/components/CurrencyProvider";
 
 /**
  * Duffel seat-map picker: one tab per segment, cabin grid, click a seat to
@@ -39,10 +40,6 @@ interface SeatMapData {
   }[];
 }
 
-function money(usd: number): string {
-  return `$${Math.round(usd).toLocaleString("en-US")}`;
-}
-
 export default function SeatMapModal({
   open,
   offerId,
@@ -58,6 +55,7 @@ export default function SeatMapModal({
   onClose: () => void;
   onApply: (selections: SeatSelection[]) => void;
 }) {
+  const { format: money } = useCurrency();
   const [maps, setMaps] = useState<SeatMapData[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [segmentIdx, setSegmentIdx] = useState(0);

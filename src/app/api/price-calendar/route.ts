@@ -27,7 +27,7 @@ export async function GET(req: NextRequest): Promise<Response> {
     : addDaysYmd(today, 330);
   const cabin = sp.get("cabin") ?? "economy";
 
-  const payload = buildCalendar({
+  const payload = await buildCalendar({
     origin,
     destination,
     cabin,

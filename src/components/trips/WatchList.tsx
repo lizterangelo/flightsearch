@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useCurrency } from "@/components/CurrencyProvider";
 
 interface Watch {
   id: number;
@@ -15,6 +16,7 @@ interface Watch {
 
 /** "WATCHING" section on My Flights: prices, deltas, remove buttons. */
 export default function WatchList() {
+  const { format: money } = useCurrency();
   const [watches, setWatches] = useState<Watch[] | null>(null);
 
   useEffect(() => {
@@ -59,7 +61,7 @@ export default function WatchList() {
             <div className="flex shrink-0 items-center gap-3">
               {watch.lastPriceUSD !== null && (
                 <span className="text-sm font-bold text-white">
-                  ${Math.round(watch.lastPriceUSD).toLocaleString("en-US")}
+                  {money(watch.lastPriceUSD)}
                 </span>
               )}
               {watch.deltaUSD !== 0 && (

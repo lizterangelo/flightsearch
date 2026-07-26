@@ -4,10 +4,10 @@
  * request × status × offers × min-price table. Nonzero exit if no request
  * returned ok on any route. Usage:
  *   node scripts/smoke.mjs [baseUrl]            stream-only check
- *   node scripts/smoke.mjs --book [baseUrl]     + full test booking:
- *     sign in (dev OTP) → search LHR→JFK → prefer a Duffel Airways offer →
- *     seat map → book with a bag/seat/protect → cancel quote → confirm.
- *     Refuses to book when the offer is live_mode.
+ *   node scripts/smoke.mjs --book [baseUrl]     + full test booking.
+ *     Auth is Google-only now, so --book needs a session cookie from a
+ *     signed-in browser: set SMOKE_COOKIE to the request Cookie header
+ *     (DevTools → any /api request → copy the sb-* cookies).
  */
 
 const args = process.argv.slice(2);
@@ -152,26 +152,16 @@ if (BOOK) {
     return { res, body };
   };
 
-  // 1. Sign in with the dev OTP.
-  const identifier = "+15550009999";
-  const started = await jfetch("/api/auth/start", {
-    method: "POST",
-    body: JSON.stringify({ identifier }),
-  });
-  const devCode = started.body?.devCode;
-  if (!devCode) {
-    console.error("No devCode (is NODE_ENV=development?)");
+  // 1. Session: Google-only auth means we borrow a browser session.
+  cookie = process.env.SMOKE_COOKIE ?? "";
+  if (!cookie) {
+    console.error(
+      "SMOKE_COOKIE not set — sign in with Google in the browser, copy the\n" +
+      "sb-* cookie header from any /api request, and export SMOKE_COOKIE.",
+    );
     process.exit(1);
   }
-  const verified = await jfetch("/api/auth/verify", {
-    method: "POST",
-    body: JSON.stringify({ identifier, code: devCode }),
-  });
-  if (!verified.body?.user) {
-    console.error("Auth failed:", verified.body);
-    process.exit(1);
-  }
-  console.log(`signed in as ${verified.body.user.identifier}`);
+  console.log("using SMOKE_COOKIE session");
 
   // 2. Search LHR→JFK and prefer a Duffel Airways (ZZ) offer for seat maps.
   const params = new URLSearchParams({

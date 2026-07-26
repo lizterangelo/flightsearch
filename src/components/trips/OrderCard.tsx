@@ -1,19 +1,19 @@
+"use client";
+
 import Link from "next/link";
+import { useCurrency } from "@/components/CurrencyProvider";
 import { formatTime } from "@/lib/format";
-import type { OrderRow } from "@/lib/db";
+import type { OrderRow } from "@/lib/data";
 import type { FlightOffer } from "@/lib/types";
 
 function parseSnapshot(row: OrderRow): FlightOffer | null {
-  try {
-    const snap = JSON.parse(row.offer_snapshot) as FlightOffer;
-    return snap?.slices?.length ? snap : null;
-  } catch {
-    return null;
-  }
+  const snap = row.offer_snapshot as FlightOffer;
+  return snap?.slices?.length ? snap : null;
 }
 
 /** One order row on My Flights. */
 export default function OrderCard({ order }: { order: OrderRow }) {
+  const { format: money } = useCurrency();
   const snapshot = parseSnapshot(order);
   const out = snapshot?.slices[0];
   const cancelled = order.status === "cancelled";
@@ -42,7 +42,7 @@ export default function OrderCard({ order }: { order: OrderRow }) {
                 Cancelled
               </span>
             )}
-            {order.protect === 1 && !cancelled && (
+            {order.protect && !cancelled && (
               <span className="rounded-full bg-emerald-400/15 px-2.5 py-0.5 text-xs font-semibold text-emerald-300">
                 Protected
               </span>
@@ -66,7 +66,7 @@ export default function OrderCard({ order }: { order: OrderRow }) {
         </div>
         <div className="shrink-0 text-right">
           <div className="text-xl font-bold text-white">
-            ${Math.round(order.display_total_usd).toLocaleString("en-US")}
+            {money(order.display_total_usd)}
           </div>
           <div className="text-xs text-muted">
             {order.live_mode ? "live" : "test"} order
