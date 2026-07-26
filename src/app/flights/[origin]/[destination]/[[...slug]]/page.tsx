@@ -18,6 +18,7 @@ import SortMenu from "@/components/results/SortMenu";
 import SummaryCards from "@/components/results/SummaryCards";
 import SearchBar, { selectionsFromQuery } from "@/components/search/SearchBar";
 import { useMe } from "@/components/auth/MeProvider";
+import { shortCityLabel } from "@/hooks/useAirportSearch";
 import { useFlightSearch } from "@/hooks/useFlightSearch";
 import type { SortMode } from "@/lib/rank";
 import type { FlightOffer } from "@/lib/types";
@@ -129,7 +130,9 @@ function FlightsContent({
             );
             return [
               s.iata,
-              hit ? `${hit.city || hit.name} (${s.iata})` : s.label,
+              hit
+                ? `${shortCityLabel(hit.city ?? "") || hit.name} (${s.iata})`
+                : s.label,
             ] as const;
           } catch {
             return [s.iata, s.label] as const;
@@ -170,7 +173,7 @@ function FlightsContent({
         </p>
         <Link
           href="/"
-          className="mt-6 inline-block rounded-full bg-accent px-6 py-3 font-semibold text-white"
+          className="mt-6 inline-block btn-cta rounded-full px-6 py-3 font-semibold text-white"
         >
           New search
         </Link>

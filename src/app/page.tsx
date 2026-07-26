@@ -1,14 +1,17 @@
+import CloudLayer from "@/components/CloudLayer";
 import HeroTagline from "@/components/search/HeroTagline";
 import SearchBar from "@/components/search/SearchBar";
 
 export default function Home() {
   return (
-    <main className="flex flex-1 flex-col items-center justify-center px-6 pb-16">
+    <main className="relative z-[2] flex flex-1 flex-col items-center justify-center px-6 pb-16">
+      <CloudLayer />
+
       <HeroTagline />
 
       <SearchBar />
 
-      <footer className="fixed right-6 bottom-5 flex items-center gap-4 text-xs text-muted">
+      <footer className="fixed right-6 bottom-5 z-10 flex items-center gap-4 text-xs text-muted">
         <a href="/terms" className="transition hover:text-white">
           Terms
         </a>

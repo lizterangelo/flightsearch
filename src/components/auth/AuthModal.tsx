@@ -3,44 +3,17 @@
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
 import { useMe } from "./MeProvider";
+import WorldMap from "./WorldMap";
 
 /**
- * Sign-in modal: dotted-globe art, headline, and Google OAuth via Supabase.
- * If the Google provider isn't configured on the Supabase project yet, the
- * button surfaces the error with a hint.
+ * Sign-in modal: animated dotted world map, a rotating headline, and Google
+ * OAuth via Supabase. If the Google provider isn't configured on the
+ * Supabase project yet, the button surfaces the error with a hint.
  */
 
-function DottedGlobe() {
-  // Abstract dot-grid "world" — softly masked, no real geography claimed.
-  return (
-    <div
-      aria-hidden
-      className="relative h-44 w-full overflow-hidden rounded-t-3xl"
-      style={{
-        backgroundImage:
-          "radial-gradient(rgba(120,150,255,0.55) 1.2px, transparent 1.3px)",
-        backgroundSize: "11px 11px",
-        maskImage:
-          "radial-gradient(ellipse 75% 90% at 50% 42%, black 30%, transparent 78%)",
-        WebkitMaskImage:
-          "radial-gradient(ellipse 75% 90% at 50% 42%, black 30%, transparent 78%)",
-      }}
-    >
-      <div
-        className="absolute inset-0"
-        style={{
-          backgroundImage:
-            "radial-gradient(rgba(200,215,255,0.9) 1.1px, transparent 1.2px)",
-          backgroundSize: "23px 19px",
-          maskImage:
-            "radial-gradient(ellipse 55% 65% at 48% 40%, black 15%, transparent 70%)",
-          WebkitMaskImage:
-            "radial-gradient(ellipse 55% 65% at 48% 40%, black 15%, transparent 70%)",
-        }}
-      />
-    </div>
-  );
-}
+const LAST_AUTH_KEY = "soar.lastAuth";
+const HEADLINE_SWAP_MS = 4500;
+const HEADLINE_OUT_MS = 380;
 
 function GoogleMark() {
   return (
@@ -78,11 +51,27 @@ export default function AuthModal({
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [headlineIndex, setHeadlineIndex] = useState(0);
+  const [headlineLeaving, setHeadlineLeaving] = useState(false);
+  const [lastUsed, setLastUsed] = useState(false);
+
+  const headlines = [headline, "Real 24/7 support, whenever you need it"];
 
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open) setError(null);
+    if (open) {
+      setError(null);
+      setHeadlineIndex(0);
+      setHeadlineLeaving(false);
+      // "Last used" chip on the Google button, like theirs. Open only ever
+      // flips on the client, so localStorage is safe here.
+      try {
+        setLastUsed(localStorage.getItem(LAST_AUTH_KEY) === "google");
+      } catch {
+        // Storage blocked — skip the chip.
+      }
+    }
   }
 
   useEffect(() => {
@@ -94,11 +83,30 @@ export default function AuthModal({
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  // Rotating headline (theirs cycles; blur out → swap → blur in).
+  useEffect(() => {
+    if (!open) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const cycle = setInterval(() => {
+      setHeadlineLeaving(true);
+      setTimeout(() => {
+        setHeadlineIndex((i) => (i + 1) % 2);
+        setHeadlineLeaving(false);
+      }, HEADLINE_OUT_MS);
+    }, HEADLINE_SWAP_MS);
+    return () => clearInterval(cycle);
+  }, [open]);
+
   if (!open) return null;
 
   const google = async () => {
     setBusy(true);
     setError(null);
+    try {
+      localStorage.setItem(LAST_AUTH_KEY, "google");
+    } catch {
+      // Nonessential.
+    }
     const message = await signInWithGoogle();
     if (message) {
       setBusy(false);
@@ -122,7 +130,7 @@ export default function AuthModal({
         role="dialog"
         aria-modal="true"
         aria-label="Sign in"
-        className="relative w-full max-w-md animate-[soar-dialog-in_.26s_cubic-bezier(.22,1,.36,1)_both] overflow-hidden rounded-3xl border border-card-border bg-[#0a1122] shadow-2xl shadow-black/60"
+        className="relative w-full max-w-md animate-[soar-dialog-in_.26s_cubic-bezier(.22,1,.36,1)_both] overflow-hidden rounded-3xl border border-card-border bg-panel shadow-2xl shadow-black/60"
       >
         <button
           type="button"
@@ -133,12 +141,19 @@ export default function AuthModal({
           ✕
         </button>
 
-        <DottedGlobe />
+        <WorldMap />
 
         <div className="px-7 pb-7">
           <div className="text-sm text-muted">Sign in.</div>
-          <h2 className="mt-1 text-2xl font-bold leading-snug text-white">
-            {headline}
+          <h2
+            key={`${headlineIndex}-${headlineLeaving}`}
+            className={`mt-1 min-h-16 text-2xl font-bold leading-snug text-white ${
+              headlineLeaving
+                ? "animate-[heroGreetingBlurOut_.38s_cubic-bezier(.55,0,.55,.2)_both]"
+                : "animate-[heroGreetingBlurIn_.5s_cubic-bezier(.22,1,.36,1)_both]"
+            }`}
+          >
+            {headlines[headlineIndex]}
           </h2>
 
           <div className="mt-6">
@@ -146,10 +161,15 @@ export default function AuthModal({
               type="button"
               disabled={busy}
               onClick={() => void google()}
-              className="flex w-full cursor-pointer items-center justify-center gap-3 rounded-2xl border border-card-border bg-white px-5 py-3.5 text-[15px] font-semibold text-[#0a1122] transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className="relative flex w-full cursor-pointer items-center justify-center gap-3 rounded-2xl border border-card-border bg-white px-5 py-3.5 text-[15px] font-semibold text-[#0b0c10] transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <GoogleMark />
               {busy ? "Opening Google…" : "Continue with Google"}
+              {lastUsed && !busy && (
+                <span className="absolute right-3 rounded-full bg-[#eef1f6] px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                  Last used
+                </span>
+              )}
             </button>
           </div>
 

@@ -148,7 +148,7 @@ export default function DetailsPanel({
               onClose();
               router.push(buildFlightsPath(query));
             }}
-            className="mt-6 cursor-pointer rounded-full bg-accent px-6 py-3 font-semibold text-white"
+            className="mt-6 cursor-pointer btn-cta rounded-full px-6 py-3 font-semibold text-white"
           >
             Refresh results
           </button>
@@ -412,7 +412,7 @@ export default function DetailsPanel({
       ))}
 
       {/* Bottom action bar */}
-      <div className="sticky bottom-0 z-10 mt-8 -mx-2 flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-card-border bg-[#0a1122]/95 px-5 py-3.5 shadow-2xl shadow-black/50 backdrop-blur-md">
+      <div className="sticky bottom-0 z-10 mt-8 -mx-2 flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-card-border bg-panel/95 px-5 py-3.5 shadow-2xl shadow-black/50 backdrop-blur-md">
         <div className="flex flex-wrap items-center gap-2.5">
           {included && (
             <Popover
@@ -563,7 +563,7 @@ export default function DetailsPanel({
               }
               router.push(bookHref());
             }}
-            className="cursor-pointer rounded-full bg-accent px-8 py-3 font-semibold text-white shadow-[0_0_24px_rgba(46,107,255,0.5)] transition hover:brightness-110"
+            className="cursor-pointer btn-cta rounded-full px-8 py-3 font-semibold text-white transition hover:brightness-110"
           >
             Book Flight
           </button>
@@ -583,7 +583,7 @@ function Overlay({
   onClose: () => void;
 }) {
   return (
-    <div role="dialog" aria-modal="true" aria-label="Flight details" className="fixed inset-0 z-[60] animate-[soar-backdrop-in_.24s_ease_both] overflow-y-auto bg-[#050b18]/80 backdrop-blur-sm">
+    <div role="dialog" aria-modal="true" aria-label="Flight details" className="fixed inset-0 z-[60] animate-[soar-backdrop-in_.24s_ease_both] overflow-y-auto bg-black/70 backdrop-blur-sm">
       <div className="mx-auto w-full max-w-4xl animate-[soar-calendar-panel-in_.32s_cubic-bezier(.22,1,.36,1)_both] px-6 pt-6 pb-10">
         <button
           type="button"

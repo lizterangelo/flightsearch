@@ -132,7 +132,7 @@ export default function FriendsTab() {
             <button
               type="button"
               onClick={() => void share()}
-              className="flex cursor-pointer items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-bold text-white shadow-[0_0_18px_rgba(46,107,255,0.4)] transition hover:brightness-110"
+              className="flex cursor-pointer items-center gap-2 btn-cta rounded-full px-5 py-2.5 text-sm font-bold text-white transition hover:brightness-110"
             >
               <svg viewBox="0 0 20 20" fill="none" className="size-4">
                 <path d="M17 3L9 11m8-8l-5.5 14-2.5-6-6-2.5L17 3z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
@@ -227,7 +227,7 @@ export default function FriendsTab() {
                 onChange={(e) =>
                   setDraft({ ...draft, gender: e.target.value as "m" | "f" })
                 }
-                className={`${input} cursor-pointer bg-[#0b0d12]`}
+                className={`${input} cursor-pointer bg-panel`}
               >
                 <option value="f">Female</option>
                 <option value="m">Male</option>

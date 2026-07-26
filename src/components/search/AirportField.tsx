@@ -10,7 +10,7 @@ import {
 
 function CityIcon() {
   return (
-    <svg viewBox="0 0 20 20" fill="none" className="size-4 text-slate-300">
+    <svg viewBox="0 0 20 20" fill="none" className="size-4 text-slate-400">
       <path
         d="M10 17s5.5-4.6 5.5-8.8A5.5 5.5 0 0010 2.5a5.5 5.5 0 00-5.5 5.7C4.5 12.4 10 17 10 17z"
         stroke="currentColor"
@@ -21,18 +21,31 @@ function CityIcon() {
   );
 }
 
+/** Their row glyph: a small solid plane heading up-right. */
 function PlaneIcon() {
   return (
-    <svg viewBox="0 0 20 20" fill="none" className="size-4 text-slate-400">
+    <svg viewBox="0 0 20 20" className="size-4 rotate-45 text-slate-400">
       <path
-        d="M2.5 13l15-5.5m0 0l-5.5 7m5.5-7l-7.5-1"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        fill="currentColor"
+        d="M10 1.9c.5 0 .9.4.9.9v4.9l6.6 3.9v1.7l-6.6-2v4.2l1.7 1.3v1.4L10 17.3l-2.6.9v-1.4l1.7-1.3v-4.2l-6.6 2v-1.7l6.6-3.9V2.8c0-.5.4-.9.9-.9z"
       />
     </svg>
   );
+}
+
+/**
+ * Their dropdown shows short airport names ("Mactan-Cebu", not
+ * "Mactan-Cebu International Airport").
+ */
+function shortAirportName(name: string): string {
+  const short = name
+    .replace(/\b(International|Intl\.?|Regional|Municipal|Metropolitan)\b/gi, " ")
+    .replace(/\bAirport\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^[-–,]+|[-–,]+$/g, "")
+    .trim();
+  return short || name;
 }
 
 function PlaceRow({ place }: { place: Place }) {
@@ -68,19 +81,22 @@ function PlaceRow({ place }: { place: Place }) {
       </span>
     );
   }
+  let short = shortAirportName(place.name);
+  // "Tokyo Haneda" next to bold "Tokyo" reads doubled — drop the prefix.
+  if (place.city && short.toLowerCase().startsWith(`${place.city.toLowerCase()} `)) {
+    short = short.slice(place.city.length).trim();
+  }
+  const redundant =
+    !place.city || short.toLowerCase() === place.city.toLowerCase();
   return (
     <span className="flex min-w-0 items-center gap-3">
       <span className="shrink-0"><PlaneIcon /></span>
       <span className="min-w-0">
         <span className="block truncate text-sm text-white">
-          {place.city ? (
-            <>
-              <b>{place.city}</b> {place.name.replace(place.city, "").trim()}
-            </>
-          ) : (
-            place.name
-          )}{" "}
-          <span className="text-muted">({place.iata})</span>
+          <b>{place.city || short}</b>{" "}
+          <span className="text-muted">
+            {redundant ? "" : `${short} `}({place.iata})
+          </span>
         </span>
         <span className="block truncate text-xs text-muted">{place.country}</span>
       </span>
@@ -155,7 +171,7 @@ export default function AirportField({
 
   const dropdown = editing && places.length > 0 && (
     <div
-      className={`absolute top-full z-50 mt-1 overflow-hidden rounded-2xl border border-card-border bg-[#0b1428]/95 py-1 shadow-2xl shadow-black/50 backdrop-blur-xl ${
+      className={`absolute top-full z-50 mt-1 overflow-hidden rounded-2xl border border-card-border bg-popover/95 py-1 shadow-2xl shadow-black/50 backdrop-blur-xl ${
         variant === "row" ? "inset-x-0" : "left-2 w-96 max-w-[calc(100vw-3rem)]"
       }`}
     >
@@ -165,9 +181,9 @@ export default function AirportField({
           type="button"
           onMouseEnter={() => setHighlight(i)}
           onClick={() => pick(place)}
-          className={`flex w-full items-center px-4 py-2.5 text-left ${
+          className={`flex w-full items-center px-4 py-2 text-left ${
             i === highlight ? "bg-white/8" : ""
-          } ${place.kind !== "city" ? "pl-7" : ""}`}
+          }`}
         >
           <PlaceRow place={place} />
         </button>

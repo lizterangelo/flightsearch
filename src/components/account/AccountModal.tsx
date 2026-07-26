@@ -205,7 +205,7 @@ export default function AccountModal() {
         role="dialog"
         aria-modal="true"
         aria-label="Account settings"
-        className="relative flex h-[92vh] w-full max-w-[1150px] animate-[soar-dialog-in_.26s_cubic-bezier(.22,1,.36,1)_both] flex-col overflow-hidden rounded-[28px] border border-white/8 bg-[#0b0d12] shadow-2xl shadow-black/70"
+        className="relative flex h-[92vh] w-full max-w-[1150px] animate-[soar-dialog-in_.26s_cubic-bezier(.22,1,.36,1)_both] flex-col overflow-hidden rounded-[28px] border border-white/8 bg-panel shadow-2xl shadow-black/70"
       >
         <div className="flex items-center justify-between px-7 pt-6 pb-2">
           <h1 className="text-[26px] font-bold text-white">Settings</h1>

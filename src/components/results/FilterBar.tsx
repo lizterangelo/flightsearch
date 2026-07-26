@@ -333,7 +333,7 @@ function TimesPanel({
               onClick={() => setTab(t)}
               className={`cursor-pointer rounded-full px-3 py-1 capitalize transition-colors ${
                 tab === t
-                  ? "bg-white text-[#0a1122]"
+                  ? "bg-white text-[#0b0c10]"
                   : "text-slate-300 hover:text-white"
               }`}
             >

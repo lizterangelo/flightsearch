@@ -32,15 +32,24 @@
   src: url("/fonts/TWKLausanne-700.woff2") format("woff2");
 }
 
+/*
+ * Neutral "liquid glass" surfaces measured off flysoar's dark theme —
+ * near-black greys (their n-scale), never navy. Blue survives only in the
+ * accent (CTAs, links) and the periwinkle text accent.
+ *   page #050507 · inner glass #08080c (n-0) · rims #0d1016 (n-50)
+ *   panels #0e0f14 · popovers #12141a
+ */
 :root {
-  --background: #050b18;
+  --background: #050507;
   --foreground: #f1f5f9;
   --accent: #2e6bff;
-  --accent-bright: #3b82f6;
-  --card: rgba(13, 22, 44, 0.92);
-  --card-border: rgba(255, 255, 255, 0.08);
-  --pill: rgba(10, 17, 34, 0.85);
-  --muted: #8b96ab;
+  --accent-bright: #7fa4ff;
+  --card: rgba(15, 17, 22, 0.92);
+  --card-border: rgba(255, 255, 255, 0.09);
+  --pill: rgba(13, 16, 22, 0.88);
+  --panel: #0e0f14;
+  --popover: #12141a;
+  --muted: #9aa1ab;
   --direct: #34d399;
   --stop: #f87171;
 }
@@ -53,6 +62,8 @@
   --color-card: var(--card);
   --color-card-border: var(--card-border);
   --color-pill: var(--pill);
+  --color-panel: var(--panel);
+  --color-popover: var(--popover);
   --color-muted: var(--muted);
   --color-direct: var(--direct);
   --color-stop: var(--stop);
@@ -62,7 +73,7 @@
 }
 
 body {
-  background: #050b18;
+  background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
   min-height: 100vh;
@@ -70,7 +81,8 @@ body {
 
 /*
  * The sky gradient lives on a fixed layer (not background-attachment: fixed,
- * which black-screens on scroll in some Chromium compositors).
+ * which black-screens on scroll in some Chromium compositors). Neutral —
+ * the blue/violet tint comes from .sky-ramp-morph on top of it.
  */
 .sky-gradient {
   position: fixed;
@@ -79,10 +91,42 @@ body {
   z-index: 0;
   background: radial-gradient(
     ellipse 120% 80% at 50% -20%,
-    #101d3f 0%,
-    #0b1530 40%,
-    #050b18 100%
+    #0d0e14 0%,
+    #08080c 45%,
+    #050507 100%
   );
+}
+
+/*
+ * Primary CTA (their Search / Book buttons): vertical blue gradient inside
+ * a 1px translucent white border — measured off the live search button.
+ */
+.btn-cta {
+  background: linear-gradient(rgb(26, 47, 158) 0%, rgb(47, 104, 255) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* Homepage clouds: gentle bob (extracted) + a slow horizontal sway. The
+ * cursor-parallax translate lives on the outer wrapper via JS. */
+@keyframes cloud-sway {
+  from {
+    transform: translateX(-1.6%);
+  }
+  to {
+    transform: translateX(1.6%);
+  }
+}
+.cloud-bob {
+  animation: soar-cloud-drift 11s ease-in-out infinite;
+}
+.cloud-sway {
+  animation: cloud-sway 26s ease-in-out infinite alternate;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cloud-bob,
+  .cloud-sway {
+    animation: none;
+  }
 }
 
 /*
@@ -184,7 +228,10 @@ body {
   --card: rgba(255, 255, 255, 0.92);
   --card-border: rgba(16, 22, 35, 0.1);
   --pill: rgba(255, 255, 255, 0.85);
+  --panel: #ffffff;
+  --popover: #ffffff;
   --muted: #5b6474;
+  --accent-bright: #2e6bff;
 }
 :root[data-theme="light"] body {
   background: #f4f6fb;

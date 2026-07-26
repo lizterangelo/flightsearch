@@ -60,7 +60,7 @@ export default function Dropdown({
       </button>
       {open && (
         <div
-          className={`absolute top-full z-50 mt-2 min-w-44 rounded-2xl border border-card-border bg-[#0b1428]/95 p-1.5 shadow-2xl shadow-black/50 backdrop-blur-xl ${
+          className={`absolute top-full z-50 mt-2 min-w-44 rounded-2xl border border-card-border bg-popover/95 p-1.5 shadow-2xl shadow-black/50 backdrop-blur-xl ${
             align === "right" ? "right-0" : "left-0"
           }`}
         >

@@ -148,7 +148,7 @@ export default function SeatMapModal({
         className="fixed inset-0 animate-[soar-backdrop-in_.24s_ease_both] bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div role="dialog" aria-modal="true" aria-label="Pick your seats" className="relative w-full max-w-2xl animate-[soar-dialog-in_.26s_cubic-bezier(.22,1,.36,1)_both] rounded-3xl border border-card-border bg-[#0a1122] p-6 shadow-2xl shadow-black/60">
+      <div role="dialog" aria-modal="true" aria-label="Pick your seats" className="relative w-full max-w-2xl animate-[soar-dialog-in_.26s_cubic-bezier(.22,1,.36,1)_both] rounded-3xl border border-card-border bg-panel p-6 shadow-2xl shadow-black/60">
         <div className="flex items-center justify-between gap-4">
           <h2 className="text-xl font-bold text-white">Pick your seats</h2>
           <button
@@ -276,7 +276,7 @@ export default function SeatMapModal({
               <button
                 type="button"
                 onClick={() => onApply(chosen)}
-                className="cursor-pointer rounded-full bg-accent px-6 py-2.5 font-semibold text-white transition hover:brightness-110"
+                className="cursor-pointer btn-cta rounded-full px-6 py-2.5 font-semibold text-white transition hover:brightness-110"
               >
                 Done
               </button>

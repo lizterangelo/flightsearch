@@ -142,8 +142,14 @@ export default function NightSky() {
               }}
             />
             <div
+              // Measured on their desktop: 57px at (81%, 10%) of 1512px wide.
               className="sky-moon"
-              style={{ width: 34, height: 34, top: "10%", left: "76.5%" }}
+              style={{
+                width: "clamp(34px, 3.77vw, 60px)",
+                height: "clamp(34px, 3.77vw, 60px)",
+                top: "10%",
+                left: "81%",
+              }}
             />
             <div className="sky-rays" />
             <div className="sky-grain" />

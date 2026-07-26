@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 const TAGLINES = [
   "Your passport's getting restless.",
   "Adventure doesn't RSVP.",
+  "Somewhere far, or just far enough?",
 ];
 
 const SWAP_MS = 6000;

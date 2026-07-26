@@ -278,7 +278,7 @@ export default function DatePickerModal({
         className="fixed inset-0 animate-[soar-calendar-backdrop-in_.28s_ease_both] bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div role="dialog" aria-modal="true" aria-label="Choose dates" className="relative w-full max-w-3xl animate-[soar-calendar-panel-in_.32s_cubic-bezier(.22,1,.36,1)_both] rounded-3xl border border-card-border bg-[#0a1122] p-7 shadow-2xl shadow-black/60">
+      <div role="dialog" aria-modal="true" aria-label="Choose dates" className="relative w-full max-w-3xl animate-[soar-calendar-panel-in_.32s_cubic-bezier(.22,1,.36,1)_both] rounded-3xl border border-card-border bg-panel p-7 shadow-2xl shadow-black/60">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div className="text-2xl font-bold text-white">{header}</div>
           <div className="flex rounded-full border border-card-border bg-pill/80 p-1 text-sm font-medium">
@@ -299,7 +299,7 @@ export default function DatePickerModal({
                 }}
                 className={`cursor-pointer rounded-full px-4 py-1.5 transition-colors ${
                   tripType === t
-                    ? "bg-white text-[#0a1122]"
+                    ? "bg-white text-[#0b0c10]"
                     : "text-slate-300 hover:text-white"
                 }`}
               >
@@ -396,7 +396,7 @@ export default function DatePickerModal({
                 flexDays: flex,
               });
             }}
-            className="cursor-pointer rounded-full bg-accent px-7 py-2.5 font-semibold text-white shadow-[0_0_20px_rgba(46,107,255,0.45)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+            className="cursor-pointer btn-cta rounded-full px-7 py-2.5 font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Apply
           </button>

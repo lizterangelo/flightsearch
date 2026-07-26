@@ -36,6 +36,16 @@ export interface PlaceSelection {
   label: string;
 }
 
+/**
+ * Their field labels compress long municipality names: "Cebu City/Lapu-Lapu
+ * City" shows as "Cebu (CEB)". First segment, minus a trailing " City".
+ */
+export function shortCityLabel(city: string): string {
+  const first = city.split("/")[0].trim();
+  const stripped = first.replace(/\s+City$/i, "").trim();
+  return stripped.length >= 3 ? stripped : first;
+}
+
 export function selectionFromPlace(place: Place): PlaceSelection {
   if (place.kind === "city") {
     return {
@@ -46,7 +56,7 @@ export function selectionFromPlace(place: Place): PlaceSelection {
   }
   return {
     iata: place.iata,
-    label: `${place.city || place.name} (${place.iata})`,
+    label: `${shortCityLabel(place.city) || place.name} (${place.iata})`,
   };
 }
 
@@ -109,7 +119,7 @@ export async function nearestAirportSelection(): Promise<PlaceSelection | null> 
     if (!body.airport) return null;
     return {
       iata: body.airport.iata,
-      label: `${body.airport.city || body.airport.name} (${body.airport.iata})`,
+      label: `${shortCityLabel(body.airport.city) || body.airport.name} (${body.airport.iata})`,
     };
   } catch {
     return null;

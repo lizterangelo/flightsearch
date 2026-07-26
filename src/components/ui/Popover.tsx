@@ -47,7 +47,7 @@ export default function Popover({
       </button>
       {open && (
         <div
-          className={`absolute top-full z-[70] mt-2 min-w-56 rounded-2xl border border-card-border bg-[#0b1428] p-4 shadow-2xl shadow-black/60 ${
+          className={`absolute top-full z-[70] mt-2 min-w-56 rounded-2xl border border-card-border bg-popover p-4 shadow-2xl shadow-black/60 ${
             align === "right" ? "right-0" : "left-0"
           }`}
         >

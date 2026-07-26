@@ -155,7 +155,7 @@ export default function LoyaltyTab() {
             <select
               value={airline}
               onChange={(e) => setAirline(e.target.value)}
-              className="cursor-pointer rounded-xl border border-white/12 bg-[#0b0d12] px-3 py-2 text-sm font-medium text-white outline-none"
+              className="cursor-pointer rounded-xl border border-white/12 bg-panel px-3 py-2 text-sm font-medium text-white outline-none"
             >
               {AIRLINES.map(([iata, name]) => (
                 <option key={iata} value={iata}>

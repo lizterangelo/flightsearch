@@ -349,7 +349,7 @@ export default function CheckoutPage({
         </p>
         <Link
           href="/"
-          className="mt-6 inline-block rounded-full bg-accent px-6 py-3 font-semibold text-white"
+          className="mt-6 inline-block btn-cta rounded-full px-6 py-3 font-semibold text-white"
         >
           New search
         </Link>
@@ -393,7 +393,7 @@ export default function CheckoutPage({
         <div className="mt-8 flex items-center justify-center gap-3">
           <Link
             href="/flights"
-            className="rounded-full bg-accent px-6 py-3 font-semibold text-white"
+            className="btn-cta rounded-full px-6 py-3 font-semibold text-white"
           >
             My Flights
           </Link>
@@ -803,7 +803,7 @@ export default function CheckoutPage({
                 if (profile?.confirm_before_booking) setConfirmOpen(true);
                 else void pay();
               }}
-              className="mt-5 w-full cursor-pointer rounded-full bg-accent px-6 py-3.5 font-semibold text-white shadow-[0_0_24px_rgba(46,107,255,0.5)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+              className="mt-5 w-full cursor-pointer btn-cta rounded-full px-6 py-3.5 font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {paying ? "Booking…" : `Pay ${money(totalUSD)}`}
             </button>
@@ -825,7 +825,7 @@ export default function CheckoutPage({
             role="dialog"
             aria-modal="true"
             aria-label="Confirm booking"
-            className="relative w-full max-w-sm animate-[soar-dialog-in_.26s_cubic-bezier(.22,1,.36,1)_both] rounded-3xl border border-card-border bg-[#0a1122] p-6 shadow-2xl shadow-black/60"
+            className="relative w-full max-w-sm animate-[soar-dialog-in_.26s_cubic-bezier(.22,1,.36,1)_both] rounded-3xl border border-card-border bg-panel p-6 shadow-2xl shadow-black/60"
           >
             <h2 className="text-xl font-bold text-white">One last look</h2>
             <p className="mt-2 text-sm leading-relaxed text-slate-300">
@@ -846,7 +846,7 @@ export default function CheckoutPage({
                   setConfirmOpen(false);
                   void pay();
                 }}
-                className="flex-1 cursor-pointer rounded-full bg-accent py-3 font-semibold text-white transition hover:brightness-110"
+                className="flex-1 cursor-pointer btn-cta rounded-full py-3 font-semibold text-white transition hover:brightness-110"
               >
                 Looks good — pay
               </button>

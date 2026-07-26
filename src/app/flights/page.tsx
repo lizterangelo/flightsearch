@@ -39,7 +39,7 @@ export default async function MyFlightsPage() {
           </p>
           <Link
             href="/"
-            className="mt-6 inline-block rounded-full bg-accent px-6 py-3 font-semibold text-white"
+            className="mt-6 inline-block btn-cta rounded-full px-6 py-3 font-semibold text-white"
           >
             Search flights
           </Link>

@@ -1,0 +1,22 @@
+/**
+ * Land bitmask for the dotted world map (auth modal), rasterized from the
+ * public-domain world.geo.json dataset by scripts in the session scratchpad.
+ * Row-major bits, bit i = cell (i % W, floor(i / W)), 1 = land.
+ * Coverage: lon [-180, 180], lat [74, -58].
+ */
+export const LAND_W = 110;
+export const LAND_H = 50;
+export const LAND_BITS_B64 =
+  "AAD//8D/AQCAkf9/BgD4Y7798T8AeCD+//8/Mv////v8A4D////////f////Ph4c8P//////" +
+  "//D//8eHAwD///////8/+P7/4IIAwPf/////3wAM/P/4AADm/v///z8cAAD+//4AwPn/////" +
+  "HwMAAP//PwDw//////8HAADA//8bAPD//////wEAAOD//wUA/P////9fAAAA+P8vAEDf4///" +
+  "/zcAAAD+/wEA8Pq///9/BAAAgP8/AAAc+O///5kAAADA/w8AAH7g////NgAAAOD/AQDAH/j/" +
+  "/z8HAAAA+D8AAPD/////DwAAAAD8GAAA/v/v//8DAAAAAB0EAMD//+f//wAAAACAhwEA8P/v" +
+  "z/8fAACAAICbAwD8///h+wEAAAAAwCMBAP//PXg8BAAAAACAAwDg//8HDh4AAAAAAMAIAPD/" +
+  "fwGDhwAAAAAA4B8A+P9/wKAgAAAAAADwDwD+/w8gCA0AAAAAAPgPAOX/AwBHAAAAAAAA/gMA" +
+  "8H8AgJ0BAAAAAMD/AQD+DwBgnwAAAAAA8P8DAP8BALD3AQAAAAD8/wGAfwAACOAFAAAAAP5/" +
+  "AOAfAADIUAQAAACA/w8A+A8AAIAEAAAAAOD/AQD/GwAAeAMAAAAA8H8AwH8DAAD/AAAAAAD4" +
+  "HwDgzwAAwD8AAAAAAP4HAPgzAAD+HwIAAACAfwAA/gwAgP8PAAAAAOAPAIAfAADA/wMAAAAA" +
+  "+AMAwAcAAPD/AAAAAAB+AADwAAAAPD8AAAAAgA8AAAAAAADBBwQAAADwAwAAAAAAAMABAwAA" +
+  "ADwAAAAAAAAAIGAAAAAADwAAAAAAAAAICAAAAMABAAAAAAAAAAABAAAAcAAAAAAAAAAAAAAA" +
+  "AADMAAAAAAAAAAAAAAAAAAcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";

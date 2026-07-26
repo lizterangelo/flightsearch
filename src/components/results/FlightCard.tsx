@@ -64,7 +64,7 @@ export default function FlightCard({
           </div>
           <button
             type="button"
-            className="cursor-pointer rounded-full bg-accent px-6 py-2 text-sm font-semibold text-white shadow-[0_0_18px_rgba(46,107,255,0.4)] transition hover:brightness-110"
+            className="cursor-pointer btn-cta rounded-full px-6 py-2 text-sm font-semibold text-white transition hover:brightness-110"
           >
             Book
           </button>

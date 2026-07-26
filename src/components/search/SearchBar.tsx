@@ -187,7 +187,8 @@ export default function SearchBar({
       {/* Mobile: the stacked search card (their under-640px layout). */}
       {!compact && (
         <div className="relative z-20 animate-[productSearchIn_.55s_cubic-bezier(.22,1,.36,1)_both] sm:hidden">
-          <div className="relative rounded-3xl border border-card-border bg-pill/90 shadow-xl shadow-black/30 backdrop-blur-md">
+          <div className="relative rounded-[28px] border border-white/12 bg-[#0d1016] p-1 shadow-xl shadow-black/40">
+            <div className="rounded-3xl bg-[#08080c]">
             <AirportField
               label="From"
               variant="row"
@@ -212,7 +213,7 @@ export default function SearchBar({
               type="button"
               onClick={swap}
               aria-label="Swap origin and destination"
-              className="absolute top-[52px] right-4 flex size-11 cursor-pointer items-center justify-center rounded-full border border-card-border bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white"
+              className="absolute top-[56px] right-5 flex size-11 cursor-pointer items-center justify-center rounded-full border border-card-border bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white"
             >
               <svg viewBox="0 0 20 20" fill="none" className="size-4 rotate-90">
                 <path
@@ -261,12 +262,13 @@ export default function SearchBar({
                 </span>
               )}
             </button>
+            </div>
           </div>
           <button
             type="button"
             onClick={() => navigate()}
             disabled={!valid}
-            className="mt-3 flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-full bg-accent py-3.5 text-lg font-semibold text-white shadow-[0_0_24px_rgba(46,107,255,0.45)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+            className="btn-cta mt-3 flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-full py-3.5 text-lg font-semibold text-white shadow-lg shadow-black/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <svg viewBox="0 0 20 20" fill="none" className="size-5">
               <circle cx="9" cy="9" r="5.5" stroke="currentColor" strokeWidth="1.8" />
@@ -283,81 +285,84 @@ export default function SearchBar({
       )}
 
       <div
-        // relative z-20: the backdrop-blur below creates a stacking context,
-        // and the options row (its own blurred context, later in the DOM)
-        // would otherwise paint over the airport dropdowns.
-        className={`relative z-20 w-full items-center rounded-full border border-card-border bg-pill/90 shadow-xl shadow-black/30 backdrop-blur-md ${compact ? "flex pr-2" : "hidden animate-[productSearchIn_.55s_cubic-bezier(.22,1,.36,1)_both] pr-2.5 sm:flex"}`}
+        // relative z-20: sibling stacking contexts (options row) would
+        // otherwise paint over the airport dropdowns.
+        // Their two-layer glass: a 4px near-black rim (search-card) around a
+        // solid #08080c field row (search-row), Search button inside the rim.
+        className={`relative z-20 w-full items-center rounded-full border border-white/12 bg-[#0d1016] p-1 shadow-xl shadow-black/40 ${compact ? "flex" : "hidden animate-[productSearchIn_.55s_cubic-bezier(.22,1,.36,1)_both] sm:flex"}`}
       >
-        <AirportField
-          label="From"
-          value={origin}
-          onChange={setOrigin}
-          placeholder="City or airport"
-        />
-        <button
-          type="button"
-          onClick={swap}
-          aria-label="Swap origin and destination"
-          className="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full border border-card-border bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white"
-        >
-          <svg viewBox="0 0 20 20" fill="none" className="size-4">
-            <path
-              d="M4 6.5h11m0 0l-3-3m3 3l-3 3M16 13.5H5m0 0l3-3m-3 3l3 3"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
-        <AirportField
-          label="To"
-          value={destination}
-          onChange={(sel) => {
-            setDestination(sel);
-            // flysoar: picking the destination opens the date picker.
-            setDateModalOpen(true);
-          }}
-          placeholder="City or airport"
-        />
-        {divider}
-        <button
-          type="button"
-          onClick={() => setDateModalOpen(true)}
-          className="shrink-0 cursor-pointer px-6 py-3.5 text-left"
-        >
-          <div className="text-xs font-medium text-muted">Dates</div>
-          <div className="flex items-center gap-2 whitespace-nowrap text-lg font-semibold">
-            {departDate ? (
-              <>
-                <span className="text-white">{shortDate(departDate)}</span>
-                <svg viewBox="0 0 20 20" fill="none" className="size-4 shrink-0 text-muted">
-                  <path
-                    d="M3 10h13m0 0l-4-4m4 4l-4 4"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                {tripType === "round_trip" ? (
-                  <span className={returnDate ? "text-white" : "text-muted/70"}>
-                    {returnDate ? shortDate(returnDate) : "Add return"}
-                  </span>
-                ) : null}
-              </>
-            ) : (
-              <span className="text-muted/70">Add dates</span>
-            )}
-          </div>
-        </button>
+        <div className="flex min-w-0 flex-1 items-center rounded-full bg-[#08080c]">
+          <AirportField
+            label="From"
+            value={origin}
+            onChange={setOrigin}
+            placeholder="City or airport"
+          />
+          <button
+            type="button"
+            onClick={swap}
+            aria-label="Swap origin and destination"
+            className="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full border border-card-border bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white"
+          >
+            <svg viewBox="0 0 20 20" fill="none" className="size-4">
+              <path
+                d="M4 6.5h11m0 0l-3-3m3 3l-3 3M16 13.5H5m0 0l3-3m-3 3l3 3"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+          <AirportField
+            label="To"
+            value={destination}
+            onChange={(sel) => {
+              setDestination(sel);
+              // flysoar: picking the destination opens the date picker.
+              setDateModalOpen(true);
+            }}
+            placeholder="City or airport"
+          />
+          {divider}
+          <button
+            type="button"
+            onClick={() => setDateModalOpen(true)}
+            className="shrink-0 cursor-pointer px-6 py-3.5 text-left"
+          >
+            <div className="text-xs font-medium text-muted">Dates</div>
+            <div className="flex items-center gap-2 whitespace-nowrap text-lg font-semibold">
+              {departDate ? (
+                <>
+                  <span className="text-white">{shortDate(departDate)}</span>
+                  <svg viewBox="0 0 20 20" fill="none" className="size-4 shrink-0 text-muted">
+                    <path
+                      d="M3 10h13m0 0l-4-4m4 4l-4 4"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  {tripType === "round_trip" ? (
+                    <span className={returnDate ? "text-white" : "text-muted/70"}>
+                      {returnDate ? shortDate(returnDate) : "Add return"}
+                    </span>
+                  ) : null}
+                </>
+              ) : (
+                <span className="text-muted/70">Add dates</span>
+              )}
+            </div>
+          </button>
+        </div>
         <button
           type="button"
           onClick={() => navigate()}
           disabled={!valid}
           aria-label="Search flights"
-          className={`flex shrink-0 cursor-pointer items-center gap-2.5 rounded-full bg-accent font-semibold text-white shadow-[0_0_24px_rgba(46,107,255,0.45)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 ${
-            compact ? "px-6 py-3 text-[15px]" : "px-8 py-4 text-lg"
+          className={`btn-cta ml-1 flex shrink-0 cursor-pointer items-center gap-2.5 rounded-full font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 ${
+            compact ? "px-6 py-2.5 text-[15px]" : "px-8 py-3.5 text-lg"
           }`}
         >
           <svg

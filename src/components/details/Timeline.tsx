@@ -25,7 +25,7 @@ const CABIN_LABELS: Record<string, string> = {
 function Dot() {
   // Centered on the timeline rail: 24px row padding + half the 1px border.
   return (
-    <span className="absolute -left-[29px] top-2 size-2.5 rounded-full border-2 border-slate-400 bg-[#0a1122]" />
+    <span className="absolute -left-[29px] top-2 size-2.5 rounded-full border-2 border-slate-400 bg-panel" />
   );
 }
 
