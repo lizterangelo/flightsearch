@@ -39,7 +39,7 @@ export default function MessageAgentButton({
     }
     // Signed in without a phone on file → the agent couldn't recognize
     // them; collect it first.
-    if (true) { // TEMP-VERIFY
+    if (me && profile && !profile.phone) {
       setPhone("");
       setError(null);
       setOpen(true);
