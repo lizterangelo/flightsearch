@@ -17,6 +17,8 @@ interface CalendarDay {
   date: string;
   amount: number;
   tier: "cheap" | "medium" | "expensive";
+  /** "estimate" rows are synthesized fill, shown as approximate. */
+  source: string;
 }
 
 const TIER_TEXT: Record<CalendarDay["tier"], string> = {
@@ -117,7 +119,9 @@ export default function FlexDateStrip({ query }: { query: SearchQuery }) {
             <div
               className={`text-[13px] font-bold ${info ? TIER_TEXT[info.tier] : "text-muted"}`}
             >
-              {info ? money(info.amount) : "—"}
+              {info
+                ? `${info.source === "estimate" ? "~" : ""}${money(info.amount)}`
+                : "—"}
             </div>
           </button>
         );

@@ -1,3 +1,4 @@
+import { airportByIata, distanceMiles } from "./airports";
 import { addDaysYmd, todayLocalYmd } from "./dates";
 import { calendarWindow, upsertObservation } from "./data";
 import { runSearchStream } from "./duffel/search";
@@ -83,7 +84,39 @@ export interface CalendarPayload {
 }
 
 const THRESHOLD = 0.12;
+const MAX_WINDOW_DAYS = 366;
 
+/** FNV-1a → [0,1): stable per-day jitter so estimates never flicker. */
+function hash01(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0) / 4294967296;
+}
+
+/** Day-of-week demand curve (Sun..Sat): weekends pricier, midweek dips. */
+const DOW_FACTOR = [0.12, 0.02, -0.06, -0.05, 0.01, 0.1, 0.05];
+
+/**
+ * Anchor fare for a route when nothing was observed yet: distance-derived,
+ * clamped to the band Duffel test fares live in.
+ */
+function heuristicBase(origin: string, destination: string): number | null {
+  const o = airportByIata(origin);
+  const d = airportByIata(destination);
+  if (!o || !d) return null;
+  const fare = 45 + distanceMiles(o, d) * 0.11;
+  return Math.round(Math.min(899, Math.max(59, fare)));
+}
+
+/**
+ * Their calendar tints every future day, not just searched ones: observed
+ * fares where the cache has them, deterministic estimates everywhere else
+ * (anchored to the route's observed median, or a distance heuristic).
+ * Estimates are display-only — never persisted — and marked source:"estimate".
+ */
 export async function buildCalendar(params: {
   origin: string;
   destination: string;
@@ -93,9 +126,66 @@ export async function buildCalendar(params: {
   scheduled: boolean;
 }): Promise<CalendarPayload> {
   const rows = await calendarWindow(params);
+  const observed = new Map(rows.map((r) => [r.depart_date, r]));
+
+  const sorted = rows.map((r) => r.amount_usd).sort((a, b) => a - b);
+  const base =
+    sorted.length > 0
+      ? sorted[Math.floor(sorted.length / 2)]
+      : heuristicBase(params.origin, params.destination);
+
+  const today = todayLocalYmd();
+  const first = params.start > today ? params.start : today;
+  const nowIso = new Date().toISOString();
+
+  const merged: {
+    date: string;
+    amount: number;
+    source: string;
+    observed_at: string;
+    expires_at: string;
+  }[] = [];
+  for (
+    let date = first, i = 0;
+    date <= params.end && i < MAX_WINDOW_DAYS;
+    date = addDaysYmd(date, 1), i++
+  ) {
+    const row = observed.get(date);
+    if (row) {
+      merged.push({
+        date,
+        amount: Math.round(row.amount_usd),
+        source: row.source,
+        observed_at: row.observed_at,
+        expires_at: row.expires_at,
+      });
+      continue;
+    }
+    if (base === null) continue;
+    const [y, m, d] = date.split("-").map(Number);
+    const dt = new Date(y, m - 1, d);
+    const dayOfYear =
+      (dt.getTime() - new Date(y, 0, 1).getTime()) / 86400000 + 1;
+    const seasonal = Math.sin((dayOfYear / 365) * Math.PI * 2) * 0.04;
+    const jitter =
+      (hash01(
+        `${params.origin}|${params.destination}|${date}|${params.cabin}`,
+      ) -
+        0.5) *
+      0.32;
+    const factor = 1 + DOW_FACTOR[dt.getDay()] + seasonal + jitter;
+    merged.push({
+      date,
+      amount: Math.max(1, Math.round(base * factor)),
+      source: "estimate",
+      observed_at: nowIso,
+      expires_at: nowIso,
+    });
+  }
+
   const average =
-    rows.length > 0
-      ? rows.reduce((sum, r) => sum + r.amount_usd, 0) / rows.length
+    merged.length > 0
+      ? merged.reduce((sum, r) => sum + r.amount, 0) / merged.length
       : null;
 
   const tierOf = (amount: number): Tier => {
@@ -112,21 +202,21 @@ export async function buildCalendar(params: {
     end: params.end,
     cabin: params.cabin,
     currency: "USD",
-    average_amount: average,
+    average_amount: average === null ? null : Math.round(average),
     threshold: THRESHOLD,
     cache_fill: {
       fetched: false,
       rows: rows.length,
       scheduled: params.scheduled,
     },
-    prices: rows.map((r) => ({
-      date: r.depart_date,
-      amount: Math.round(r.amount_usd),
+    prices: merged.map((r) => ({
+      date: r.date,
+      amount: r.amount,
       currency: "USD" as const,
       source: r.source,
       observed_at: r.observed_at,
       expires_at: r.expires_at,
-      tier: tierOf(r.amount_usd),
+      tier: tierOf(r.amount),
     })),
   };
 }

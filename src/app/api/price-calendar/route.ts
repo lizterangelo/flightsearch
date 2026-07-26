@@ -36,8 +36,9 @@ export async function GET(req: NextRequest): Promise<Response> {
     scheduled: false,
   });
 
-  // Sparse window → optionally seed it in the background.
-  if (payload.prices.length < 6) {
+  // Sparse window → optionally seed it in the background. Estimates pad
+  // `prices` to full coverage, so gate on real observation rows.
+  if (payload.cache_fill.rows < 6) {
     payload.cache_fill.scheduled = maybeScheduleFill(origin, destination);
   }
 

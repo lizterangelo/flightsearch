@@ -40,10 +40,11 @@ function shortLabel(dateYmd: string): string {
   });
 }
 
+/** Their heatmap chips: filled green / amber / pink tiles per price tier. */
 const TIER_CLASS: Record<Tier, string> = {
-  cheap: "bg-emerald-500/15 text-emerald-300",
-  medium: "bg-amber-500/12 text-amber-200/90",
-  expensive: "bg-rose-500/12 text-rose-300/90",
+  cheap: "bg-[#14291d] text-[#85e5a5]",
+  medium: "bg-[#2b2314] text-[#e6ac62]",
+  expensive: "bg-[#2f1a21] text-[#f295ad]",
 };
 
 function MonthGrid({
@@ -101,9 +102,12 @@ function MonthGrid({
           return (
             <div
               key={date}
-              className={`relative py-0.5 ${inRange ? "bg-accent/15" : ""} ${
-                isDepart && rangeEnd ? "rounded-l-lg bg-accent/15" : ""
-              } ${isReturn ? "rounded-r-lg bg-accent/15" : ""}`}
+              // Their selection: a continuous dark-navy band across the
+              // range, periwinkle chips on the endpoints, tier tints
+              // suppressed inside it.
+              className={`relative py-0.5 ${inRange ? "bg-[#1c2444]" : ""} ${
+                isDepart && rangeEnd ? "rounded-l-lg bg-[#1c2444]" : ""
+              } ${isReturn ? "rounded-r-lg bg-[#1c2444]" : ""}`}
             >
               <button
                 type="button"
@@ -115,10 +119,12 @@ function MonthGrid({
                   past
                     ? "cursor-default text-white/15"
                     : isDepart || isReturn
-                      ? "bg-accent text-white"
-                      : tier
-                        ? `${TIER_CLASS[tier]} hover:ring-1 hover:ring-white/30`
-                        : "text-slate-200 hover:bg-white/10"
+                      ? "bg-[#8ca5fb] font-semibold text-white"
+                      : inRange
+                        ? "text-white hover:bg-white/10"
+                        : tier
+                          ? `${TIER_CLASS[tier]} hover:ring-1 hover:ring-white/30`
+                          : "text-slate-200 hover:bg-white/10"
                 } ${isToday && !isDepart && !isReturn ? "ring-1 ring-white/50" : ""}`}
               >
                 {Number(date.slice(8, 10))}
