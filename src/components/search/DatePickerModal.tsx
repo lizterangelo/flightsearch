@@ -284,10 +284,10 @@ export default function DatePickerModal({
         className="fixed inset-0 animate-[soar-calendar-backdrop-in_.28s_ease_both] bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div role="dialog" aria-modal="true" aria-label="Choose dates" className="relative w-full max-w-3xl animate-[soar-calendar-panel-in_.32s_cubic-bezier(.22,1,.36,1)_both] rounded-3xl border border-card-border bg-panel p-7 shadow-2xl shadow-black/60">
-        <div className="mb-6 flex items-center justify-between gap-4">
-          <div className="text-2xl font-bold text-white">{header}</div>
-          <div className="flex rounded-full border border-card-border bg-pill/80 p-1 text-sm font-medium">
+      <div role="dialog" aria-modal="true" aria-label="Choose dates" className="relative w-full max-w-3xl animate-[soar-calendar-panel-in_.32s_cubic-bezier(.22,1,.36,1)_both] rounded-3xl border border-card-border bg-panel p-5 shadow-2xl shadow-black/60 sm:p-7">
+        <div className="mb-5 flex items-center justify-between gap-3 sm:mb-6 sm:gap-4">
+          <div className="min-w-0 truncate text-lg font-bold text-white sm:text-2xl">{header}</div>
+          <div className="flex shrink-0 rounded-full border border-card-border bg-pill/80 p-1 text-sm font-medium">
             {(
               [
                 ["one_way", "One-way"],
@@ -303,7 +303,7 @@ export default function DatePickerModal({
                   setTripType(t);
                   if (t === "one_way") setRet(null);
                 }}
-                className={`cursor-pointer rounded-full px-4 py-1.5 transition-colors ${
+                className={`cursor-pointer whitespace-nowrap rounded-full px-3 py-1.5 transition-colors sm:px-4 ${
                   tripType === t
                     ? "bg-white text-[#0b0c10]"
                     : "text-slate-300 hover:text-white"
@@ -344,17 +344,20 @@ export default function DatePickerModal({
             onPick={pick}
             onHover={setHover}
           />
-          <MonthGrid
-            year={secondMonth.getFullYear()}
-            month={secondMonth.getMonth()}
-            today={today}
-            depart={depart}
-            ret={ret}
-            hover={hover}
-            tiers={tiers}
-            onPick={pick}
-            onHover={setHover}
-          />
+          {/* Phones show a single month (their mobile sheet) — arrows page it. */}
+          <div className="hidden flex-1 sm:block">
+            <MonthGrid
+              year={secondMonth.getFullYear()}
+              month={secondMonth.getMonth()}
+              today={today}
+              depart={depart}
+              ret={ret}
+              hover={hover}
+              tiers={tiers}
+              onPick={pick}
+              onHover={setHover}
+            />
+          </div>
           <button
             type="button"
             aria-label="Next month"
@@ -373,14 +376,14 @@ export default function DatePickerModal({
           </button>
         </div>
 
-        <div className="mt-8 flex items-center justify-between gap-4 border-t border-white/8 pt-5">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/8 pt-4 sm:mt-8 sm:gap-4 sm:pt-5">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             {FLEX_OPTIONS.map(({ value, label }) => (
               <button
                 key={value}
                 type="button"
                 onClick={() => setFlex(value)}
-                className={`cursor-pointer rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors ${
+                className={`cursor-pointer whitespace-nowrap rounded-full border px-2.5 py-1.5 text-xs font-medium transition-colors sm:px-3.5 sm:text-[13px] ${
                   flex === value
                     ? "border-accent/60 bg-accent/15 text-accent-bright"
                     : "border-card-border bg-pill/60 text-slate-300 hover:text-white"
@@ -402,7 +405,7 @@ export default function DatePickerModal({
                 flexDays: flex,
               });
             }}
-            className="cursor-pointer btn-cta rounded-full px-7 py-2.5 font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+            className="btn-cta ml-auto cursor-pointer rounded-full px-7 py-2.5 font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Apply
           </button>

@@ -28,7 +28,7 @@ const CLOUDS: {
     height: 1310,
     depth: 0.5,
     className: "opacity-90",
-    style: { left: "14vw", bottom: "-16vh", width: "58vw" },
+    style: { left: "14vw", bottom: "-16vh", width: "max(58vw, 480px)" },
   },
   {
     src: "/ds-assets/clouds/clouds-1.avif",
@@ -36,7 +36,7 @@ const CLOUDS: {
     height: 702,
     depth: 0.95,
     className: "opacity-95",
-    style: { left: "-6vw", bottom: "-10vh", width: "44vw" },
+    style: { left: "-8vw", bottom: "-10vh", width: "max(44vw, 360px)" },
   },
   {
     src: "/ds-assets/clouds/clouds-3.avif",
@@ -44,7 +44,7 @@ const CLOUDS: {
     height: 1082,
     depth: 1.25,
     className: "opacity-95",
-    style: { right: "-5vw", bottom: "-12vh", width: "46vw" },
+    style: { right: "-6vw", bottom: "-12vh", width: "max(46vw, 400px)" },
   },
   {
     src: "/ds-assets/clouds/clouds-4.avif",
@@ -52,7 +52,7 @@ const CLOUDS: {
     height: 1400,
     depth: 1.8,
     className: "opacity-80",
-    style: { right: "12vw", bottom: "10vh", width: "28vw" },
+    style: { right: "10vw", bottom: "12vh", width: "max(28vw, 200px)" },
   },
 ];
 

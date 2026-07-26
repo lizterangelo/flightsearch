@@ -26,7 +26,7 @@ export default function FlightCard({
     // can hang the compositor; the near-opaque card color does the job.
     <div
       onClick={() => onOpen(offer)}
-      className={`card-arrive relative cursor-pointer rounded-3xl border bg-card p-6 transition hover:border-white/20 ${
+      className={`card-arrive relative cursor-pointer rounded-3xl border bg-card p-4 transition hover:border-white/20 sm:p-6 ${
         isBest
           ? "border-accent/50 shadow-[0_0_30px_rgba(46,107,255,0.15)]"
           : "border-card-border"
@@ -34,8 +34,9 @@ export default function FlightCard({
     >
       {isBest && <BestBadge />}
 
-      <div className="flex items-center gap-6">
-        <div className="flex w-28 shrink-0 flex-col items-center gap-2 text-center">
+      {/* Phones stack airline / slices / price; desktop is the 3-column row. */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
+        <div className="flex items-center gap-2.5 sm:w-28 sm:shrink-0 sm:flex-col sm:gap-2 sm:text-center">
           <AirlineLogo
             carrierCode={offer.ownerCode}
             carrierName={offer.ownerName}
@@ -55,16 +56,16 @@ export default function FlightCard({
           ))}
         </div>
 
-        <div className="flex w-36 shrink-0 flex-col items-end gap-3 text-right">
+        <div className="flex items-center justify-between gap-3 border-t border-white/8 pt-3 sm:w-36 sm:shrink-0 sm:flex-col sm:items-end sm:border-t-0 sm:pt-0 sm:text-right">
           <div>
-            <div className="text-[28px] leading-9 font-bold text-white">
+            <div className="text-[22px] leading-7 font-bold text-white sm:text-[28px] sm:leading-9">
               {money(offer.displayUSD)}
             </div>
             <div className="text-xs tracking-wide text-muted">{tripLabel}</div>
           </div>
           <button
             type="button"
-            className="cursor-pointer btn-cta rounded-full px-6 py-2 text-sm font-semibold text-white transition hover:brightness-110"
+            className="btn-cta cursor-pointer rounded-full px-6 py-2 text-sm font-semibold text-white transition hover:brightness-110"
           >
             Book
           </button>

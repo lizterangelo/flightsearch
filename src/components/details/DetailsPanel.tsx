@@ -211,9 +211,9 @@ export default function DetailsPanel({
   return (
     <Overlay onClose={onClose}>
       {/* Header card */}
-      <div className="rounded-3xl border border-card-border bg-card p-6">
-        <div className="flex items-start justify-between gap-6">
-          <div className="flex items-center gap-5">
+      <div className="rounded-3xl border border-card-border bg-card p-4 sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4 sm:gap-6">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-5">
             <AirlineLogo
               carrierCode={offer.ownerCode}
               carrierName={offer.ownerName}
@@ -223,7 +223,7 @@ export default function DetailsPanel({
               <div className="text-sm text-muted">
                 {offer.ownerName} <span className="mx-1">·</span> {tripLabel}
               </div>
-              <div className="mt-0.5 flex items-center gap-3 text-3xl font-bold text-white">
+              <div className="mt-0.5 flex items-center gap-2 text-2xl font-bold text-white sm:gap-3 sm:text-3xl">
                 {out?.originCity ?? offer.slices[0]?.origin}
                 <svg viewBox="0 0 24 24" fill="none" className="size-6 text-accent-bright">
                   <path
@@ -303,11 +303,11 @@ export default function DetailsPanel({
             </div>
           </div>
 
-          <div className="text-right">
+          <div className="ml-auto shrink-0 text-right">
             <Popover
               align="right"
               trigger={
-                <span className="cursor-pointer text-4xl font-bold text-white transition hover:text-accent-bright">
+                <span className="cursor-pointer text-3xl font-bold text-white transition hover:text-accent-bright sm:text-4xl">
                   {money(totalUSD)}
                 </span>
               }
@@ -386,7 +386,7 @@ export default function DetailsPanel({
       {/* Slices */}
       {offer.slices.map((slice, i) => (
         <div key={i} className="mt-7">
-          <div className="mb-3 flex items-center gap-2 text-lg font-semibold text-white">
+          <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-base font-semibold text-white sm:text-lg">
             {i === 0 ? "Departing flight" : "Returning flight"}
             <span className="font-normal text-muted">
               ·{" "}
@@ -412,7 +412,7 @@ export default function DetailsPanel({
       ))}
 
       {/* Bottom action bar */}
-      <div className="sticky bottom-0 z-10 mt-8 -mx-2 flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-card-border bg-panel/95 px-5 py-3.5 shadow-2xl shadow-black/50 backdrop-blur-md">
+      <div className="sticky bottom-0 z-10 mt-8 -mx-2 flex flex-wrap items-center justify-between gap-2.5 rounded-3xl border border-card-border bg-panel/95 px-3.5 py-3 shadow-2xl shadow-black/50 backdrop-blur-md sm:gap-3 sm:px-5 sm:py-3.5">
         <div className="flex flex-wrap items-center gap-2.5">
           {included && (
             <Popover
@@ -530,7 +530,7 @@ export default function DetailsPanel({
           </a>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex w-full items-center gap-2.5 sm:w-auto sm:gap-3">
           <button
             type="button"
             aria-label="Share this flight"
@@ -563,7 +563,7 @@ export default function DetailsPanel({
               }
               router.push(bookHref());
             }}
-            className="cursor-pointer btn-cta rounded-full px-8 py-3 font-semibold text-white transition hover:brightness-110"
+            className="btn-cta flex-1 cursor-pointer rounded-full px-8 py-3 text-center font-semibold text-white transition hover:brightness-110 sm:flex-initial"
           >
             Book Flight
           </button>

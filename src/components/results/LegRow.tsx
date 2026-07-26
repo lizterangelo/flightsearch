@@ -14,16 +14,16 @@ export default function LegRow({ slice }: { slice: OfferSlice }) {
       }`;
 
   return (
-    <div className="flex items-center gap-5">
-      <div className="w-28 text-right">
-        <div className="text-[23px] leading-8 font-semibold whitespace-nowrap text-white">
+    <div className="flex items-center gap-3 sm:gap-5">
+      <div className="w-20 text-right sm:w-28">
+        <div className="text-lg leading-7 font-semibold whitespace-nowrap text-white sm:text-[23px] sm:leading-8">
           {formatTime(slice.departure)}
         </div>
-        <div className="text-sm text-muted">{slice.origin}</div>
+        <div className="text-xs text-muted sm:text-sm">{slice.origin}</div>
       </div>
 
-      <div className="relative flex-1 py-4">
-        <div className="mb-1.5 text-center text-xs text-muted">
+      <div className="relative min-w-0 flex-1 py-3 sm:py-4">
+        <div className="mb-1.5 truncate text-center text-xs text-muted">
           {formatDuration(slice.durationMinutes)}
         </div>
         <div className="relative h-px bg-white/20">
@@ -32,7 +32,7 @@ export default function LegRow({ slice }: { slice: OfferSlice }) {
           )}
         </div>
         <div
-          className={`mt-1.5 text-center text-xs font-medium ${
+          className={`mt-1.5 truncate text-center text-xs font-medium ${
             direct ? "text-direct" : "text-stop"
           }`}
         >
@@ -40,7 +40,7 @@ export default function LegRow({ slice }: { slice: OfferSlice }) {
         </div>
       </div>
 
-      <svg viewBox="0 0 20 20" fill="none" className="size-4 shrink-0 text-slate-400">
+      <svg viewBox="0 0 20 20" fill="none" className="hidden size-4 shrink-0 text-slate-400 sm:block">
         <path
           d="M3 10h13m0 0l-4-4m4 4l-4 4"
           stroke="currentColor"
@@ -50,8 +50,8 @@ export default function LegRow({ slice }: { slice: OfferSlice }) {
         />
       </svg>
 
-      <div className="w-28">
-        <div className="text-[23px] leading-8 font-semibold whitespace-nowrap text-white">
+      <div className="w-20 sm:w-28">
+        <div className="text-lg leading-7 font-semibold whitespace-nowrap text-white sm:text-[23px] sm:leading-8">
           {formatTime(slice.arrival)}
           {slice.overnightDays > 0 && (
             <sup className="ml-0.5 text-xs font-semibold text-stop">
@@ -59,7 +59,7 @@ export default function LegRow({ slice }: { slice: OfferSlice }) {
             </sup>
           )}
         </div>
-        <div className="text-sm text-muted">{slice.destination}</div>
+        <div className="text-xs text-muted sm:text-sm">{slice.destination}</div>
       </div>
     </div>
   );

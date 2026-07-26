@@ -91,6 +91,8 @@ export default function SearchBar({
   const [cabin, setCabin] = useState<Cabin>(initial?.cabin ?? "economy");
   const [flexDays, setFlexDays] = useState<FlexDays>(initial?.flexDays ?? 0);
   const [dateModalOpen, setDateModalOpen] = useState(false);
+  // Compact bar on phones renders as a summary pill until tapped open.
+  const [mobileExpanded, setMobileExpanded] = useState(false);
 
   // Default origin: last used, else geolocate on mount (like flysoar's
   // pre-filled "From"). Async so hydration renders the same empty field the
@@ -184,8 +186,41 @@ export default function SearchBar({
 
   return (
     <div className={compact ? "w-full" : "w-full max-w-5xl"}>
+      {/* Mobile, results page: a condensed summary pill that expands. */}
+      {compact && !mobileExpanded && (
+        <button
+          type="button"
+          onClick={() => setMobileExpanded(true)}
+          className="relative z-20 flex w-full cursor-pointer items-center rounded-full border border-white/12 bg-[#0d1016] p-1 text-left sm:hidden"
+        >
+          <span className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-[#08080c] px-3 py-3 text-sm font-semibold text-white">
+            <span className="max-w-24 truncate">{origin?.label ?? "From"}</span>
+            <span className="shrink-0 text-muted">
+              {tripType === "round_trip" ? "⇄" : "→"}
+            </span>
+            <span className="max-w-24 truncate">
+              {destination?.label ?? "To"}
+            </span>
+            {departDate && (
+              <span className="ml-1 shrink-0 text-xs font-medium text-muted">
+                {shortDate(departDate).replace(/^[A-Za-z]+, /, "")}
+                {returnDate
+                  ? ` – ${shortDate(returnDate).replace(/^[A-Za-z]+, /, "")}`
+                  : ""}
+              </span>
+            )}
+          </span>
+          <span className="btn-cta ml-1 flex size-10 shrink-0 items-center justify-center rounded-full text-white">
+            <svg viewBox="0 0 20 20" fill="none" className="size-4.5">
+              <circle cx="9" cy="9" r="5.5" stroke="currentColor" strokeWidth="1.8" />
+              <path d="M13.5 13.5L17 17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </span>
+        </button>
+      )}
+
       {/* Mobile: the stacked search card (their under-640px layout). */}
-      {!compact && (
+      {(!compact || mobileExpanded) && (
         <div className="relative z-20 animate-[productSearchIn_.55s_cubic-bezier(.22,1,.36,1)_both] sm:hidden">
           <div className="relative rounded-[28px] border border-white/12 bg-[#0d1016] p-1 shadow-xl shadow-black/40">
             <div className="rounded-3xl bg-[#08080c]">
@@ -289,7 +324,7 @@ export default function SearchBar({
         // otherwise paint over the airport dropdowns.
         // Their two-layer glass: a 4px near-black rim (search-card) around a
         // solid #08080c field row (search-row), Search button inside the rim.
-        className={`relative z-20 w-full items-center rounded-full border border-white/12 bg-[#0d1016] p-1 shadow-xl shadow-black/40 ${compact ? "flex" : "hidden animate-[productSearchIn_.55s_cubic-bezier(.22,1,.36,1)_both] sm:flex"}`}
+        className={`relative z-20 w-full items-center rounded-full border border-white/12 bg-[#0d1016] p-1 shadow-xl shadow-black/40 ${compact ? "hidden sm:flex" : "hidden animate-[productSearchIn_.55s_cubic-bezier(.22,1,.36,1)_both] sm:flex"}`}
       >
         <div className="flex min-w-0 flex-1 items-center rounded-full bg-[#08080c]">
           <AirportField

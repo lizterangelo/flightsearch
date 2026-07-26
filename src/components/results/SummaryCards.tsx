@@ -29,7 +29,7 @@ export default function SummaryCards({
   if (offers.length < 2) return null;
 
   return (
-    <div className="mb-5 grid grid-cols-3 gap-3">
+    <div className="mb-5 flex gap-2.5 overflow-x-auto [scrollbar-width:none] sm:grid sm:grid-cols-3 sm:gap-3 [&::-webkit-scrollbar]:hidden">
       {TILES.map(({ mode, label }) => {
         const top = sortOffers(offers, mode)[0];
         if (!top) return null;
@@ -40,7 +40,7 @@ export default function SummaryCards({
             key={mode}
             type="button"
             onClick={() => onSort(mode)}
-            className={`cursor-pointer rounded-2xl border px-4 py-3 text-left transition ${
+            className={`min-w-[9.5rem] shrink-0 cursor-pointer rounded-2xl border px-4 py-3 text-left transition sm:min-w-0 sm:shrink ${
               active
                 ? "border-accent/60 bg-accent/10"
                 : "border-card-border bg-card hover:border-white/20"

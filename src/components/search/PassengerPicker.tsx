@@ -78,8 +78,8 @@ export default function PassengerPicker({
     <Dropdown
       trigger={(open) =>
         trigger?.(open, label) ?? (
-          <span className="flex items-center gap-2 px-5 py-3 text-[15px] font-medium text-slate-200">
-            <svg viewBox="0 0 20 20" fill="none" className="size-4.5 text-slate-300">
+          <span className="flex items-center gap-1.5 whitespace-nowrap px-3.5 py-2.5 text-[13px] font-medium text-slate-200 sm:gap-2 sm:px-5 sm:py-3 sm:text-[15px]">
+            <svg viewBox="0 0 20 20" fill="none" className="hidden size-4.5 text-slate-300 sm:block">
               <circle cx="10" cy="6.5" r="3" stroke="currentColor" strokeWidth="1.5" />
               <path
                 d="M4 16.5c0-2.8 2.7-4.5 6-4.5s6 1.7 6 4.5"
@@ -89,7 +89,7 @@ export default function PassengerPicker({
               />
             </svg>
             {label}
-            <Chevron open={open} />
+            <span className="hidden sm:block"><Chevron open={open} /></span>
           </span>
         )
       }
