@@ -20,8 +20,10 @@
  *   SOAR_BASE               app origin        default http://localhost:3000
  *   SOAR_AGENT_EMAIL        booking account   optional -> search-only
  *   SOAR_AGENT_PASSWORD
- *   ANTHROPIC_API_KEY       optional -> natural language mode
+ *   ANTHROPIC_API_KEY       optional -> natural language via Claude
  *   SOAR_AGENT_MODEL        default claude-sonnet-5
+ *   GEMINI_API_KEY          natural language via Gemini when no Anthropic key
+ *   SOAR_AGENT_MODEL_GEMINI default gemini-2.5-flash
  *   SOAR_AGENT_ALLOW        comma-separated handles (phone/email) allowed to
  *                           command the agent — REQUIRED in daemon mode.
  *                           "*" opens it to everyone (1:1 iMessage threads
@@ -40,6 +42,7 @@
  */
 
 import { execFile } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { createInterface } from "node:readline";
@@ -157,6 +160,53 @@ const needsAccount = () =>
   env.SOAR_AGENT_EMAIL
     ? null
     : { error: "Account features are off — set SOAR_AGENT_EMAIL/SOAR_AGENT_PASSWORD in .env." };
+
+/* ---------------------------- account linking ---------------------------- */
+/*
+ * Unknown senders get a sign-in link (/agent-link?token=…). Once claimed on
+ * the website, their handle maps to their web account: bookings carry
+ * on_behalf_user_id (so trips show on their My Flights) and contact details
+ * prefill from their profile. The owner (explicit allowlist) keeps acting
+ * directly on the agent account.
+ */
+
+const linkCache = new Map(); // handle -> { ts, ctx }
+
+async function linkedContext(handle) {
+  if (!handle || !env.SOAR_AGENT_EMAIL) return null;
+  const hit = linkCache.get(handle);
+  if (hit && Date.now() - hit.ts < 60_000) return hit.ctx;
+  const res = await rest("/rpc/agent_context_for_handle", {
+    method: "POST",
+    body: JSON.stringify({ p_handle: handle }),
+  });
+  const ctx = res.ok && res.body?.linked ? res.body : null;
+  linkCache.set(handle, { ts: Date.now(), ctx });
+  return ctx;
+}
+
+async function makeLinkUrl(handle) {
+  const token = randomBytes(18).toString("base64url");
+  const res = await rest("/agent_link_tokens", {
+    method: "POST",
+    body: JSON.stringify({ token, handle }),
+  });
+  if (!res.ok) return null;
+  return `${BASE}/agent-link?token=${token}`;
+}
+
+/** Gate for account actions: owner passes, linked senders pass where
+ * supported, unknown senders get a fresh sign-in link. */
+async function linkGate(state) {
+  if (state.owner || state.behalf) return null;
+  if (!state.handle) return needsAccount();
+  const url = await makeLinkUrl(state.handle);
+  return {
+    error: url
+      ? `Link your Soar account first, then try again: ${url} (link expires in 15 min)`
+      : "Linking is unavailable right now — try again shortly.",
+  };
+}
 
 /* ------------------------------ clone tools ------------------------------ */
 
@@ -343,8 +393,16 @@ async function seatServicesFor(offerId, designators, passengerIds) {
   return services;
 }
 
+/** Non-owner senders must link before account actions; some stay web-only. */
+function ownerOnly(state, what) {
+  if (state.owner || !state.behalf) return null;
+  return {
+    error: `${what} lives on your web account — manage it at ${BASE}. This chat can search, book, cancel and show your trips.`,
+  };
+}
+
 async function bookFlight(state, args) {
-  const gate = needsAccount();
+  const gate = needsAccount() ?? (await linkGate(state));
   if (gate) return gate;
   const offer = state.offers[(args.index ?? 0) - 1];
   if (!offer) return { error: `No option ${args.index} — search first.` };
@@ -398,10 +456,12 @@ async function bookFlight(state, args) {
     .map((l) => ({ airline_iata_code: l.airline_iata, account_number: l.account_number }));
 
   const profile = (await rest("/profiles?select=email,phone")).body?.[0] ?? {};
+  const contact = state.behalf ?? profile;
   const booked = await api("/api/book", {
     method: "POST",
     body: JSON.stringify({
       offerId: offer.id,
+      ...(state.behalf ? { onBehalfUserId: state.behalf.user_id } : {}),
       passengers: paxIds.map((id, i) => {
         const t = travelers[i];
         return {
@@ -411,8 +471,8 @@ async function bookFlight(state, args) {
           family_name: t.family_name,
           born_on: t.born_on,
           gender: t.gender,
-          email: t.email || profile.email || env.SOAR_AGENT_EMAIL,
-          phone_number: t.phone || profile.phone || "+14155550123",
+          email: t.email || contact.email || env.SOAR_AGENT_EMAIL,
+          phone_number: t.phone || contact.phone || "+14155550123",
           ...(t.passport_number
             ? {
                 identity_documents: [
@@ -444,27 +504,33 @@ async function bookFlight(state, args) {
   };
 }
 
-async function myFlights() {
-  const gate = needsAccount();
+async function myFlights(state) {
+  const gate = needsAccount() ?? (await linkGate(state));
   if (gate) return gate;
   const rows = await rest(
-    "/orders?select=duffel_order_id,booking_reference,status,total_amount,total_currency,created_at&order=created_at.desc&limit=8",
+    "/orders?select=duffel_order_id,booking_reference,status,total_amount,total_currency,created_at,on_behalf_user_id&order=created_at.desc&limit=30",
   );
   if (!rows.ok) return { error: "Sign-in for the agent account failed — check .env credentials." };
+  const mine = state.behalf
+    ? rows.body.filter((r) => r.on_behalf_user_id === state.behalf.user_id)
+    : rows.body;
   return {
-    flights: rows.body.map(
+    flights: mine.slice(0, 8).map(
       (r) => `${r.booking_reference} · ${r.status} · ${r.total_amount} ${r.total_currency} · order ${r.duffel_order_id}`,
     ),
   };
 }
 
-async function orderDetails(orderId) {
-  const gate = needsAccount();
+async function orderDetails(state, orderId) {
+  const gate = needsAccount() ?? (await linkGate(state));
   if (gate) return gate;
   const rows = await rest(
-    `/orders?duffel_order_id=eq.${encodeURIComponent(orderId)}&select=booking_reference,status,total_amount,total_currency,protect,protect_fee_usd,refund_amount,refund_currency,created_at,offer_snapshot`,
+    `/orders?duffel_order_id=eq.${encodeURIComponent(orderId)}&select=booking_reference,status,total_amount,total_currency,protect,protect_fee_usd,refund_amount,refund_currency,created_at,offer_snapshot,on_behalf_user_id`,
   );
   if (!rows.ok || !rows.body?.[0]) return { error: "No such order on this account." };
+  if (state.behalf && rows.body[0].on_behalf_user_id !== state.behalf.user_id) {
+    return { error: "That order belongs to a different traveler." };
+  }
   const o = rows.body[0];
   const slices = (o.offer_snapshot?.slices ?? []).map(
     (s) =>
@@ -481,9 +547,17 @@ async function orderDetails(orderId) {
   };
 }
 
-async function cancelOrder(args) {
-  const gate = needsAccount();
+async function cancelOrder(state, args) {
+  const gate = needsAccount() ?? (await linkGate(state));
   if (gate) return gate;
+  if (state.behalf) {
+    const check = await rest(
+      `/orders?duffel_order_id=eq.${encodeURIComponent(args.order_id)}&select=on_behalf_user_id`,
+    );
+    if (check.body?.[0]?.on_behalf_user_id !== state.behalf.user_id) {
+      return { error: "That order belongs to a different traveler." };
+    }
+  }
   if (args.confirmed !== true) {
     const quote = await api(`/api/orders/${args.order_id}/cancel`, { method: "POST" });
     if (!quote.ok) return { error: `Cancel quote failed: ${quote.body?.error ?? quote.status}` };
@@ -531,7 +605,7 @@ async function priceCalendar(args) {
 }
 
 async function manageWatches(state, args) {
-  const gate = needsAccount();
+  const gate = needsAccount() ?? ownerOnly(state, "Price watches") ?? (await linkGate(state));
   if (gate) return gate;
   if (args.action === "add") {
     const offer = state.offers[(args.index ?? 0) - 1];
@@ -586,9 +660,17 @@ const PROFILE_FIELDS = new Set([
   "beta_agent_booking",
 ]);
 
-async function getProfile() {
-  const gate = needsAccount();
+async function getProfile(state) {
+  const gate = needsAccount() ?? (await linkGate(state));
   if (gate) return gate;
+  if (state.behalf) {
+    const snapshot = Object.fromEntries(
+      Object.entries(state.behalf).filter(
+        ([k, v]) => !["linked", "user_id"].includes(k) && v !== null,
+      ),
+    );
+    return { ...snapshot, note: "Read-only here — edit your profile on the website." };
+  }
   const rows = await rest("/profiles?select=*");
   const p = rows.body?.[0];
   if (!p) return { error: "Profile not found." };
@@ -599,8 +681,8 @@ async function getProfile() {
   return out;
 }
 
-async function updateProfile(fields) {
-  const gate = needsAccount();
+async function updateProfile(state, fields) {
+  const gate = needsAccount() ?? ownerOnly(state, "Profile editing") ?? (await linkGate(state));
   if (gate) return gate;
   const patch = {};
   for (const [k, v] of Object.entries(fields ?? {})) {
@@ -616,8 +698,8 @@ async function updateProfile(fields) {
   return { updated: Object.keys(patch) };
 }
 
-async function manageFriends(args) {
-  const gate = needsAccount();
+async function manageFriends(state, args) {
+  const gate = needsAccount() ?? ownerOnly(state, "Saved friends") ?? (await linkGate(state));
   if (gate) return gate;
   if (args.action === "add") {
     const res = await rest("/friends", {
@@ -647,8 +729,8 @@ async function manageFriends(args) {
   };
 }
 
-async function manageLoyalty(args) {
-  const gate = needsAccount();
+async function manageLoyalty(state, args) {
+  const gate = needsAccount() ?? ownerOnly(state, "Loyalty programmes") ?? (await linkGate(state));
   if (gate) return gate;
   if (args.action === "add") {
     if (!/^[A-Z0-9]{2}$/i.test(args.airline_iata ?? "")) return { error: "airline_iata must be the 2-letter airline code (e.g. PR, ZZ)." };
@@ -673,8 +755,8 @@ async function manageLoyalty(args) {
   return { programmes: rows.body.map((l) => `${l.airline_name} (${l.airline_iata}) ${l.account_number} · id ${l.id}`) };
 }
 
-async function manageCards(args) {
-  const gate = needsAccount();
+async function manageCards(state, args) {
+  const gate = needsAccount() ?? ownerOnly(state, "The card vault") ?? (await linkGate(state));
   if (gate) return gate;
   if (args.action === "add") {
     if (!/^\d{4}$/.test(args.last4 ?? "")) return { error: "last4 must be 4 digits (the vault is display-only — never send full card numbers)." };
@@ -707,8 +789,8 @@ async function manageCards(args) {
   };
 }
 
-async function sendFeedback(message) {
-  const gate = needsAccount();
+async function sendFeedback(state, message) {
+  const gate = needsAccount() ?? (await linkGate(state));
   if (gate) return gate;
   const res = await rest("/feedback", {
     method: "POST",
@@ -892,6 +974,7 @@ const SYSTEM = `You are Soar's iMessage travel agent (a private STUDY CLONE runn
 Today is ${new Date().toISOString().slice(0, 10)}.
 Style: text-message short. Plain text only — no markdown, no bullets, at most a few numbered lines. One question at a time.
 You can do everything the app can: search, compare, seat maps, bags, multi-traveler bookings (friends' saved details help), Protect, cancellations, price calendars, watches, and full account management (profile, phone, travel documents, preferences, notifications, friends, loyalty, card vault, feedback).
+Account linking: some tools reply with a sign-in link for unlinked travelers — pass that URL along verbatim and tell them to tap it, sign in, then text again. Linked travelers get bookings on their own Soar account; profile/friends/watch management happens on the website for them.
 Hard rules: resolve vague dates to YYYY-MM-DD (ask if unsure). Before book_flight or a cancel confirmation you MUST state the exact quoted total/refund and get an explicit yes — only then pass confirmed=true. Collect every traveler's name, date of birth and gender (plus passports when required). NEVER accept full card numbers — the vault stores brand + last 4 only. Account deletion is not something you can do; point people to the web app's Settings.`;
 
 async function runClaude(state, userText) {
@@ -927,31 +1010,91 @@ async function runClaude(state, userText) {
     }
     const results = [];
     for (const use of toolUses) {
-      let result;
-      try {
-        const a = use.input;
-        if (use.name === "search_flights") result = await searchFlights(state, a);
-        else if (use.name === "offer_details") result = await offerDetails(state, a.index);
-        else if (use.name === "list_seats") result = await listSeats(state, a.index);
-        else if (use.name === "book_flight") result = await bookFlight(state, a);
-        else if (use.name === "my_flights") result = await myFlights();
-        else if (use.name === "order_details") result = await orderDetails(a.order_id);
-        else if (use.name === "cancel_order") result = await cancelOrder(a);
-        else if (use.name === "price_calendar") result = await priceCalendar(a);
-        else if (use.name === "manage_watches") result = await manageWatches(state, a);
-        else if (use.name === "get_profile") result = await getProfile();
-        else if (use.name === "update_profile") result = await updateProfile(a.fields);
-        else if (use.name === "manage_friends") result = await manageFriends(a);
-        else if (use.name === "manage_loyalty") result = await manageLoyalty(a);
-        else if (use.name === "manage_cards") result = await manageCards(a);
-        else if (use.name === "send_feedback") result = await sendFeedback(a.message);
-        else result = { error: `Unknown tool ${use.name}` };
-      } catch (err) {
-        result = { error: String(err?.message ?? err) };
-      }
+      const result = await execTool(state, use.name, use.input);
       results.push({ type: "tool_result", tool_use_id: use.id, content: JSON.stringify(result) });
     }
     state.history.push({ role: "user", content: results });
+  }
+  return "Sorry — that took too many steps. Try a simpler request.";
+}
+
+/** Shared tool dispatch for both model providers. */
+async function execTool(state, name, a) {
+  try {
+    if (name === "search_flights") return await searchFlights(state, a);
+    if (name === "offer_details") return await offerDetails(state, a.index);
+    if (name === "list_seats") return await listSeats(state, a.index);
+    if (name === "book_flight") return await bookFlight(state, a);
+    if (name === "my_flights") return await myFlights(state);
+    if (name === "order_details") return await orderDetails(state, a.order_id);
+    if (name === "cancel_order") return await cancelOrder(state, a);
+    if (name === "price_calendar") return await priceCalendar(a);
+    if (name === "manage_watches") return await manageWatches(state, a);
+    if (name === "get_profile") return await getProfile(state);
+    if (name === "update_profile") return await updateProfile(state, a.fields);
+    if (name === "manage_friends") return await manageFriends(state, a);
+    if (name === "manage_loyalty") return await manageLoyalty(state, a);
+    if (name === "manage_cards") return await manageCards(state, a);
+    if (name === "send_feedback") return await sendFeedback(state, a.message);
+    return { error: `Unknown tool ${name}` };
+  } catch (err) {
+    return { error: String(err?.message ?? err) };
+  }
+}
+
+/* ------------------------------ Gemini agent ------------------------------ */
+
+const GEMINI_MODEL = env.SOAR_AGENT_MODEL_GEMINI ?? "gemini-2.5-flash";
+
+/**
+ * Same agent on Google's Gemini API (free tier available) — history kept in
+ * Gemini's contents format on state.ghistory.
+ */
+async function runGemini(state, userText) {
+  state.ghistory ??= [];
+  state.ghistory.push({ role: "user", parts: [{ text: userText }] });
+  while (state.ghistory.length > 30) state.ghistory.shift();
+  if (state.ghistory[0]?.role !== "user") state.ghistory.shift();
+
+  const declarations = TOOLS.map((t) => ({
+    name: t.name,
+    description: t.description,
+    parameters: t.input_schema,
+  }));
+
+  for (let round = 0; round < 10; round++) {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: SYSTEM }] },
+          tools: [{ functionDeclarations: declarations }],
+          contents: state.ghistory,
+          generationConfig: { maxOutputTokens: 700 },
+        }),
+      },
+    );
+    const msg = await res.json();
+    if (!res.ok) {
+      return `Agent error: ${msg.error?.message ?? res.status}. Check GEMINI_API_KEY.`;
+    }
+    const parts = msg.candidates?.[0]?.content?.parts ?? [];
+    state.ghistory.push({ role: "model", parts });
+
+    const calls = parts.filter((p) => p.functionCall);
+    if (calls.length === 0) {
+      return parts.map((p) => p.text ?? "").join("").trim() || "…";
+    }
+    const responses = [];
+    for (const call of calls) {
+      const result = await execTool(state, call.functionCall.name, call.functionCall.args ?? {});
+      responses.push({
+        functionResponse: { name: call.functionCall.name, response: { result } },
+      });
+    }
+    state.ghistory.push({ role: "user", parts: responses });
   }
   return "Sorry — that took too many steps. Try a simpler request.";
 }
@@ -982,7 +1125,7 @@ async function runCommands(state, text) {
     const result =
       pending.kind === "book"
         ? await bookFlight(state, { ...pending.args, confirmed: true })
-        : await cancelOrder({ ...pending.args, confirmed: true });
+        : await cancelOrder(state, { ...pending.args, confirmed: true });
     if (result.error) return result.error;
     if (pending.kind === "book")
       return `Booked! PNR ${result.pnr} — charged ${result.charged}. Order ${result.order_id}.`;
@@ -1018,16 +1161,16 @@ async function runCommands(state, text) {
     return result.message.replace("The traveler must reply", "Reply").replace(" before you call book_flight with confirmed=true", "");
   }
   if (lower === "flights") {
-    const result = await myFlights();
+    const result = await myFlights(state);
     if (result.error) return result.error;
     return result.flights.length ? result.flights.join("\n") : "No bookings yet.";
   }
   if (lower === "order" && rest_[0]) {
-    const result = await orderDetails(rest_[0]);
+    const result = await orderDetails(state, rest_[0]);
     return result.error ?? JSON.stringify(result, null, 1).replace(/[{}",[\]]/g, "").replace(/\n\s*\n/g, "\n").trim();
   }
   if (lower === "cancel" && rest_[0]) {
-    const result = await cancelOrder({ order_id: rest_[0] });
+    const result = await cancelOrder(state, { order_id: rest_[0] });
     if (result.error) return result.error;
     state.pending = { kind: "cancel", args: { order_id: rest_[0], cancellation_id: result.cancellation_id } };
     return `Refund: ${result.refund}. Reply "yes" to confirm cancellation.`;
@@ -1049,7 +1192,7 @@ async function runCommands(state, text) {
     return result.error ?? "Watch removed.";
   }
   if (lower === "profile") {
-    const result = await getProfile();
+    const result = await getProfile(state);
     return result.error ?? JSON.stringify(result, null, 1).replace(/[{}",]/g, "").trim();
   }
   if (lower === "set" && rest_.length >= 2) {
@@ -1057,49 +1200,49 @@ async function runCommands(state, text) {
     let v = value.join(" ");
     if (v === "true") v = true;
     else if (v === "false") v = false;
-    const result = await updateProfile({ [field]: v });
+    const result = await updateProfile(state, { [field]: v });
     return result.error ?? `Updated ${result.updated.join(", ")}.`;
   }
   if (lower === "friends") {
-    const result = await manageFriends({ action: "list" });
+    const result = await manageFriends(state, { action: "list" });
     return result.error ?? (result.friends.length ? result.friends.join("\n") : "No saved friends.");
   }
   if (lower === "friend" && sub === "add" && rest_.length >= 5) {
     const [, first, last_, dob, gender] = rest_;
-    const result = await manageFriends({ action: "add", given_name: first, family_name: last_, born_on: dob, gender });
+    const result = await manageFriends(state, { action: "add", given_name: first, family_name: last_, born_on: dob, gender });
     return result.error ?? `Saved ${result.added}.`;
   }
   if (lower === "friend" && sub === "rm" && rest_[1]) {
-    const result = await manageFriends({ action: "remove", friend_id: rest_[1] });
+    const result = await manageFriends(state, { action: "remove", friend_id: rest_[1] });
     return result.error ?? "Removed.";
   }
   if (lower === "loyalty" && rest_.length === 0) {
-    const result = await manageLoyalty({ action: "list" });
+    const result = await manageLoyalty(state, { action: "list" });
     return result.error ?? (result.programmes.length ? result.programmes.join("\n") : "No loyalty programmes.");
   }
   if (lower === "loyalty" && sub === "add" && rest_.length >= 3) {
-    const result = await manageLoyalty({ action: "add", airline_iata: rest_[1], account_number: rest_[2] });
+    const result = await manageLoyalty(state, { action: "add", airline_iata: rest_[1], account_number: rest_[2] });
     return result.error ?? "Added — it attaches to future bookings.";
   }
   if (lower === "loyalty" && sub === "rm" && rest_[1]) {
-    const result = await manageLoyalty({ action: "remove", id: rest_[1] });
+    const result = await manageLoyalty(state, { action: "remove", id: rest_[1] });
     return result.error ?? "Removed.";
   }
   if (lower === "cards") {
-    const result = await manageCards({ action: "list" });
+    const result = await manageCards(state, { action: "list" });
     return result.error ?? (result.cards.length ? result.cards.join("\n") : "No cards in the vault.");
   }
   if (lower === "card" && sub === "add" && rest_.length >= 5) {
     const [, brand, last4, mm, yyyy] = rest_;
-    const result = await manageCards({ action: "add", brand, last4, exp_month: Number(mm), exp_year: Number(yyyy) });
+    const result = await manageCards(state, { action: "add", brand, last4, exp_month: Number(mm), exp_year: Number(yyyy) });
     return result.error ?? "Card saved (display-only vault).";
   }
   if (lower === "card" && sub === "rm" && rest_[1]) {
-    const result = await manageCards({ action: "remove", id: rest_[1] });
+    const result = await manageCards(state, { action: "remove", id: rest_[1] });
     return result.error ?? "Removed.";
   }
   if (lower === "feedback" && rest_.length > 0) {
-    const result = await sendFeedback(rest_.join(" "));
+    const result = await sendFeedback(state, rest_.join(" "));
     return result.error ?? "Thanks — feedback logged.";
   }
   return HELP;
@@ -1187,19 +1330,25 @@ const stateFor = (key) => {
 async function handleText(chatKey, text) {
   const state = stateFor(chatKey);
   try {
-    return env.ANTHROPIC_API_KEY
-      ? await runClaude(state, text)
-      : await runCommands(state, text);
+    if (env.ANTHROPIC_API_KEY) return await runClaude(state, text);
+    if (env.GEMINI_API_KEY) return await runGemini(state, text);
+    return await runCommands(state, text);
   } catch (err) {
     return `Something broke: ${String(err?.message ?? err).slice(0, 160)}`;
   }
 }
 
 async function replLoop() {
+  const brain = env.ANTHROPIC_API_KEY
+    ? `Claude (${MODEL})`
+    : env.GEMINI_API_KEY
+      ? `Gemini (${GEMINI_MODEL})`
+      : "command mode (no API key)";
   console.log(
-    `Soar agent REPL · ${env.ANTHROPIC_API_KEY ? `Claude (${MODEL})` : "command mode (no ANTHROPIC_API_KEY)"} · booking ${env.SOAR_AGENT_EMAIL ? "on" : "off"} · base ${BASE}`,
+    `Soar agent REPL · ${brain} · booking ${env.SOAR_AGENT_EMAIL ? "on" : "off"} · base ${BASE}`,
   );
-  if (!env.ANTHROPIC_API_KEY) console.log(HELP);
+  if (!env.ANTHROPIC_API_KEY && !env.GEMINI_API_KEY) console.log(HELP);
+  stateFor("repl").owner = true; // the terminal is the owner seat
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   rl.setPrompt("you> ");
   rl.prompt();
@@ -1280,6 +1429,12 @@ async function daemonLoop() {
         continue;
       }
       console.log(`[${new Date().toISOString()}] ${sender}: ${text}`);
+      // Sender context: the owner acts on the agent account directly;
+      // everyone else acts on their linked web account (or gets a link).
+      const st = stateFor(row.chat ?? sender);
+      st.handle = normalize(sender);
+      st.owner = row.is_from_me ? true : allowed(sender, explicit);
+      st.behalf = st.owner ? null : await linkedContext(st.handle);
       const reply = await handleText(row.chat ?? sender, text);
       try {
         await sendMessage(row.handle ?? row.chat, `${MARKER}${reply}`);

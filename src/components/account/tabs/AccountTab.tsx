@@ -138,7 +138,18 @@ export default function AccountTab() {
           sub="Book flights and get trip alerts by texting Soar."
           right={
             <PillButton
-              onClick={() => toast("The iMessage agent isn't part of this build")}
+              onClick={() => {
+                const handle = process.env.NEXT_PUBLIC_IMESSAGE_HANDLE;
+                if (handle) {
+                  // Opens Messages to the agent; texting it sends back a
+                  // sign-in link that finishes on /agent-link.
+                  window.location.href = `sms:${handle}`;
+                } else {
+                  toast(
+                    "Set NEXT_PUBLIC_IMESSAGE_HANDLE and run scripts/imessage-agent.mjs to enable the agent",
+                  );
+                }
+              }}
             >
               <span className="flex items-center gap-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}

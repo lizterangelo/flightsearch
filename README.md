@@ -106,7 +106,12 @@ Setup (`.env`):
   Tokyo mid-September, book the cheapest direct"). Without it the agent
   still works with plain commands (`search CEB HND 2026-09-04`,
   `book 1 First Last 1990-04-01 f`, `flights`, `cancel <order id>`, `yes`).
-  `SOAR_AGENT_MODEL` overrides the default `claude-sonnet-5`.
+  `SOAR_AGENT_MODEL` overrides the default `claude-sonnet-5`. **Billing
+  note:** this is the pay-as-you-go Anthropic API (console.anthropic.com),
+  separate from a Claude / Claude Code subscription.
+- `GEMINI_API_KEY` — alternative natural-language brain when no Anthropic
+  key is set (Google AI Studio keys have a free tier);
+  `SOAR_AGENT_MODEL_GEMINI` overrides the default `gemini-2.5-flash`.
 - `SOAR_AGENT_ALLOW` — comma-separated phone/email handles allowed to
   command the daemon. Required; everyone else is ignored. Set it to `*`
   to answer **anyone** who texts you — open mode only speaks in 1:1
@@ -125,10 +130,22 @@ so it can read `chat.db`; approve the **Automation → Messages** prompt on
 first send. Texting the agent from the same Apple ID (a self-chat) works —
 replies are prefixed `✈️` and the daemon skips its own messages.
 
-Safety rails: the agent only answers allow-listed handles, always asks for
-an explicit "yes" (stating the exact total) before booking or cancelling,
-and refuses live-mode offers outright — the dev server and Duffel test
-token mean nothing real is ever ticketed.
+**Account linking** (their sign-in-over-iMessage flow): when someone who
+isn't the owner texts the agent, account actions reply with a one-time
+`/agent-link?token=…` URL. Opening it and signing in (Google) binds that
+phone/email to their web account; from then on the agent books **on their
+account** — orders carry `on_behalf_user_id`, show up in their web
+My Flights, and contact details prefill from their profile. Profile
+editing, friends, loyalty, cards and watches stay web-side for linked
+travelers; the owner (explicitly allow-listed handles) keeps full control
+of the agent account. The Account tab's "Message Agent" button opens the
+thread via `NEXT_PUBLIC_IMESSAGE_HANDLE`.
+
+Safety rails: the agent only answers allow-listed handles (or everyone in
+open mode, rate-limited), always asks for an explicit "yes" (stating the
+exact total) before booking or cancelling, and refuses live-mode offers
+outright — the dev server and Duffel test token mean nothing real is ever
+ticketed.
 
 ## Duffel test-mode notes
 

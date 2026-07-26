@@ -76,6 +76,8 @@ export interface OrderRow {
   cancelled_at: string | null;
   refund_amount: string | null;
   refund_currency: string | null;
+  /** Set when the iMessage agent booked for a linked web account. */
+  on_behalf_user_id: string | null;
   created_at: string;
 }
 
@@ -90,6 +92,7 @@ export async function insertOrder(row: {
   protectFeeUSD: number;
   offerSnapshot: FlightOffer | null;
   liveMode: boolean;
+  onBehalfUserId?: string | null;
 }): Promise<void> {
   const db = await supabaseServer();
   const { error } = await db.from("orders").insert({
@@ -103,6 +106,7 @@ export async function insertOrder(row: {
     protect_fee_usd: row.protectFeeUSD,
     offer_snapshot: row.offerSnapshot ?? {},
     live_mode: row.liveMode,
+    on_behalf_user_id: row.onBehalfUserId ?? null,
   });
   if (error) throw new Error(`Order save failed: ${error.message}`);
 }

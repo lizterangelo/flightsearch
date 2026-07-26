@@ -59,6 +59,9 @@ const BookRequest = z.object({
   protect: z.boolean().default(false),
   protectFeeUSD: z.number().min(0).max(500).default(0),
   displayTotalUSD: z.number().min(0),
+  // Set by the iMessage agent for linked senders; only honored for the
+  // configured agent account.
+  onBehalfUserId: z.string().uuid().optional(),
 });
 
 /**
@@ -88,6 +91,18 @@ export async function POST(req: Request): Promise<Response> {
       { status: 400 },
     );
   }
+  // on-behalf booking is an agent-only capability.
+  const agentEmail = process.env.SOAR_AGENT_EMAIL;
+  if (
+    parsed.data.onBehalfUserId &&
+    (!agentEmail || user.email !== agentEmail)
+  ) {
+    return Response.json(
+      { error: "on-behalf booking is reserved for the agent account" },
+      { status: 403 },
+    );
+  }
+
   const {
     offerId,
     passengers,
@@ -96,6 +111,7 @@ export async function POST(req: Request): Promise<Response> {
     protect,
     protectFeeUSD,
     displayTotalUSD,
+    onBehalfUserId,
   } = parsed.data;
 
   try {
@@ -194,6 +210,7 @@ export async function POST(req: Request): Promise<Response> {
       protectFeeUSD,
       offerSnapshot: snapshot,
       liveMode: !duffelTestMode(),
+      onBehalfUserId: onBehalfUserId ?? null,
     });
     // Booking reward: a point per display dollar.
     await addPoints(user.id, Math.max(0, Math.floor(displayTotalUSD)));
