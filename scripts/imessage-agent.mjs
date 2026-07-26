@@ -508,12 +508,18 @@ async function myFlights(state) {
   const gate = needsAccount() ?? (await linkGate(state));
   if (gate) return gate;
   const rows = await rest(
-    "/orders?select=duffel_order_id,booking_reference,status,total_amount,total_currency,created_at,on_behalf_user_id&order=created_at.desc&limit=30",
+    "/orders?select=duffel_order_id,booking_reference,status,total_amount,total_currency,created_at,user_id,on_behalf_user_id&order=created_at.desc&limit=40",
   );
   if (!rows.ok) return { error: "Sign-in for the agent account failed — check .env credentials." };
+  // Web-made bookings carry the traveler in user_id; agent-made carry
+  // on_behalf_user_id. Owners see the agent account's own orders.
   const mine = state.behalf
-    ? rows.body.filter((r) => r.on_behalf_user_id === state.behalf.user_id)
-    : rows.body;
+    ? rows.body.filter(
+        (r) =>
+          r.user_id === state.behalf.user_id ||
+          r.on_behalf_user_id === state.behalf.user_id,
+      )
+    : rows.body.filter((r) => r.user_id === uid());
   return {
     flights: mine.slice(0, 8).map(
       (r) => `${r.booking_reference} · ${r.status} · ${r.total_amount} ${r.total_currency} · order ${r.duffel_order_id}`,
@@ -525,12 +531,13 @@ async function orderDetails(state, orderId) {
   const gate = needsAccount() ?? (await linkGate(state));
   if (gate) return gate;
   const rows = await rest(
-    `/orders?duffel_order_id=eq.${encodeURIComponent(orderId)}&select=booking_reference,status,total_amount,total_currency,protect,protect_fee_usd,refund_amount,refund_currency,created_at,offer_snapshot,on_behalf_user_id`,
+    `/orders?duffel_order_id=eq.${encodeURIComponent(orderId)}&select=booking_reference,status,total_amount,total_currency,protect,protect_fee_usd,refund_amount,refund_currency,created_at,offer_snapshot,user_id,on_behalf_user_id`,
   );
   if (!rows.ok || !rows.body?.[0]) return { error: "No such order on this account." };
-  if (state.behalf && rows.body[0].on_behalf_user_id !== state.behalf.user_id) {
-    return { error: "That order belongs to a different traveler." };
-  }
+  const owned =
+    rows.body[0].user_id === (state.behalf?.user_id ?? uid()) ||
+    rows.body[0].on_behalf_user_id === state.behalf?.user_id;
+  if (!owned) return { error: "That order belongs to a different traveler." };
   const o = rows.body[0];
   const slices = (o.offer_snapshot?.slices ?? []).map(
     (s) =>
@@ -552,9 +559,14 @@ async function cancelOrder(state, args) {
   if (gate) return gate;
   if (state.behalf) {
     const check = await rest(
-      `/orders?duffel_order_id=eq.${encodeURIComponent(args.order_id)}&select=on_behalf_user_id`,
+      `/orders?duffel_order_id=eq.${encodeURIComponent(args.order_id)}&select=user_id,on_behalf_user_id`,
     );
-    if (check.body?.[0]?.on_behalf_user_id !== state.behalf.user_id) {
+    const row = check.body?.[0];
+    if (
+      !row ||
+      (row.user_id !== state.behalf.user_id &&
+        row.on_behalf_user_id !== state.behalf.user_id)
+    ) {
       return { error: "That order belongs to a different traveler." };
     }
   }

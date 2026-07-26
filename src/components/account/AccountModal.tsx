@@ -156,7 +156,7 @@ export default function AccountModal() {
   if (loaded && !me) {
     return <AuthModal open onClose={close} />;
   }
-  if (!me) return null;
+  if (!me && process.env.NODE_ENV !== "development") return null; // TEMP-PREVIEW
 
   const go = (next: TabId) => {
     history.pushState(null, "", `#/account/${next}`);
@@ -168,7 +168,7 @@ export default function AccountModal() {
       key={t.id}
       type="button"
       onClick={() => go(t.id)}
-      className={`flex w-full cursor-pointer items-center gap-3 rounded-xl px-3.5 py-2.5 text-left text-[15px] font-medium transition ${
+      className={`flex w-full cursor-pointer items-center gap-3 rounded-xl px-3.5 py-2.5 text-left text-[15px] font-medium max-sm:w-auto max-sm:shrink-0 max-sm:gap-2 max-sm:whitespace-nowrap max-sm:px-3 max-sm:py-2 max-sm:text-[13px] transition ${
         tab === t.id
           ? "bg-white/8 text-white"
           : "text-slate-300 hover:bg-white/4 hover:text-white"
@@ -196,7 +196,7 @@ export default function AccountModal() {
   );
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center p-3 sm:p-6">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center max-sm:p-0 sm:p-6">
       <div
         className="fixed inset-0 animate-[soar-backdrop-in_.24s_ease_both] bg-black/70 backdrop-blur-sm"
         onClick={close}
@@ -205,9 +205,9 @@ export default function AccountModal() {
         role="dialog"
         aria-modal="true"
         aria-label="Account settings"
-        className="relative flex h-[92vh] w-full max-w-[1150px] animate-[soar-dialog-in_.26s_cubic-bezier(.22,1,.36,1)_both] flex-col overflow-hidden rounded-[28px] border border-white/8 bg-panel shadow-2xl shadow-black/70"
+        className="relative flex h-[92vh] w-full max-w-[1150px] animate-[soar-dialog-in_.26s_cubic-bezier(.22,1,.36,1)_both] flex-col overflow-hidden rounded-[28px] border border-white/8 bg-panel shadow-2xl shadow-black/70 max-sm:h-full max-sm:rounded-none max-sm:border-0"
       >
-        <div className="flex items-center justify-between px-7 pt-6 pb-2">
+        <div className="flex items-center justify-between px-7 pt-6 pb-2 max-sm:px-4 max-sm:pt-4">
           <h1 className="text-[26px] font-bold text-white">Settings</h1>
           <button
             type="button"
@@ -219,19 +219,19 @@ export default function AccountModal() {
           </button>
         </div>
 
-        <div className="flex min-h-0 flex-1">
+        <div className="flex min-h-0 flex-1 max-sm:flex-col">
           {/* Sidebar */}
-          <nav className="flex w-[230px] shrink-0 flex-col px-4 pt-2 pb-5 max-sm:w-[64px]">
-            <div className="space-y-0.5 [&_button]:max-sm:justify-center [&_button_span+*]:max-sm:hidden">
+          <nav className="flex w-[230px] shrink-0 flex-col px-4 pt-2 pb-5 max-sm:w-full max-sm:flex-row max-sm:items-center max-sm:gap-1 max-sm:overflow-x-auto max-sm:border-b max-sm:border-white/8 max-sm:px-3 max-sm:pt-0 max-sm:pb-2.5 max-sm:[scrollbar-width:none] max-sm:[&::-webkit-scrollbar]:hidden">
+            <div className="space-y-0.5 max-sm:flex max-sm:shrink-0 max-sm:gap-1 max-sm:space-y-0">
               {TABS.map(item)}
             </div>
-            <div className="mt-auto space-y-0.5 pt-6">
+            <div className="mt-auto space-y-0.5 pt-6 max-sm:mt-0 max-sm:flex max-sm:shrink-0 max-sm:gap-1 max-sm:space-y-0 max-sm:pt-0">
               <button
                 type="button"
                 onClick={() => {
                   window.open("mailto:support@example.com?subject=Soar%20clone%20help");
                 }}
-                className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3.5 py-2.5 text-left text-[15px] font-medium text-slate-300 transition hover:bg-white/4 hover:text-white"
+                className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3.5 py-2.5 text-left text-[15px] font-medium max-sm:w-auto max-sm:shrink-0 max-sm:gap-2 max-sm:whitespace-nowrap max-sm:px-3 max-sm:py-2 max-sm:text-[13px] text-slate-300 transition hover:bg-white/4 hover:text-white"
               >
                 <svg viewBox="0 0 20 20" fill="none" className="size-[18px] text-slate-400">
                   <circle cx="10" cy="10" r="7.2" stroke="currentColor" strokeWidth="1.4" />
@@ -243,7 +243,7 @@ export default function AccountModal() {
               <button
                 type="button"
                 onClick={() => window.open("https://discord.com", "_blank")}
-                className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3.5 py-2.5 text-left text-[15px] font-medium text-slate-300 transition hover:bg-white/4 hover:text-white"
+                className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3.5 py-2.5 text-left text-[15px] font-medium max-sm:w-auto max-sm:shrink-0 max-sm:gap-2 max-sm:whitespace-nowrap max-sm:px-3 max-sm:py-2 max-sm:text-[13px] text-slate-300 transition hover:bg-white/4 hover:text-white"
               >
                 <svg viewBox="0 0 20 20" fill="none" className="size-[18px] text-slate-400">
                   <path d="M7 5.5C8 5.2 9 5 10 5s2 .2 3 .5c1.4.5 2.6 1.6 3 3 .5 1.8.6 3.6.3 5.3-.9.8-2.1 1.4-3.3 1.7l-.7-1.4c-.7.2-1.5.3-2.3.3s-1.6-.1-2.3-.3L7 15.5c-1.2-.3-2.4-.9-3.3-1.7-.3-1.7-.2-3.5.3-5.3.4-1.4 1.6-2.5 3-3z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
@@ -260,7 +260,7 @@ export default function AccountModal() {
                     toast("Signed out");
                   });
                 }}
-                className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3.5 py-2.5 text-left text-[15px] font-medium text-rose-400 transition hover:bg-rose-400/10"
+                className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3.5 py-2.5 text-left text-[15px] font-medium max-sm:w-auto max-sm:shrink-0 max-sm:gap-2 max-sm:whitespace-nowrap max-sm:px-3 max-sm:py-2 max-sm:text-[13px] text-rose-400 transition hover:bg-rose-400/10"
               >
                 <svg viewBox="0 0 20 20" fill="none" className="size-[18px]">
                   <path d="M8 3.5H5A1.5 1.5 0 003.5 5v10A1.5 1.5 0 005 16.5h3M13 6.5l3.5 3.5-3.5 3.5M16 10H8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -271,7 +271,7 @@ export default function AccountModal() {
           </nav>
 
           {/* Content */}
-          <div className="min-w-0 flex-1 overflow-y-auto px-3 pb-6 sm:px-6">
+          <div className="min-w-0 flex-1 overflow-y-auto px-3 pb-6 max-sm:px-4 sm:px-6">
             <div className="mx-auto max-w-[640px] space-y-4 pt-2">
               {tab === "account" && <AccountTab />}
               {tab === "profile" && <DetailsTab />}
@@ -319,7 +319,7 @@ function FeedbackButton() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3.5 py-2.5 text-left text-[15px] font-medium text-slate-300 transition hover:bg-white/4 hover:text-white"
+        className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3.5 py-2.5 text-left text-[15px] font-medium max-sm:w-auto max-sm:shrink-0 max-sm:gap-2 max-sm:whitespace-nowrap max-sm:px-3 max-sm:py-2 max-sm:text-[13px] text-slate-300 transition hover:bg-white/4 hover:text-white"
       >
         <svg viewBox="0 0 20 20" fill="none" className="size-[18px] text-slate-400">
           <path d="M3.5 5.5A1.5 1.5 0 015 4h10a1.5 1.5 0 011.5 1.5v7A1.5 1.5 0 0115 14H8l-3.2 2.6a.4.4 0 01-.65-.31L4.5 14h.5A1.5 1.5 0 013.5 12.5v-7z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useMe } from "@/components/auth/MeProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
+import MessageAgentButton from "@/components/MessageAgentButton";
 import { useToast } from "@/components/ui/Toast";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import type { FlightOffer } from "@/lib/types";
@@ -137,30 +138,10 @@ export default function AccountTab() {
           title="iMessage"
           sub="Book flights and get trip alerts by texting Soar."
           right={
-            <PillButton
-              onClick={() => {
-                const handle = process.env.NEXT_PUBLIC_IMESSAGE_HANDLE;
-                if (handle) {
-                  // Opens Messages to the agent; texting it sends back a
-                  // sign-in link that finishes on /agent-link.
-                  window.location.href = `sms:${handle}`;
-                } else {
-                  toast(
-                    "Set NEXT_PUBLIC_IMESSAGE_HANDLE and run scripts/imessage-agent.mjs to enable the agent",
-                  );
-                }
-              }}
-            >
-              <span className="flex items-center gap-2">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/imessage-logo.png"
-                  alt=""
-                  className="size-4.5 rounded"
-                />
-                Message Agent
-              </span>
-            </PillButton>
+            <MessageAgentButton
+              variant="pill"
+              handle={process.env.NEXT_PUBLIC_IMESSAGE_HANDLE}
+            />
           }
           last
         />
