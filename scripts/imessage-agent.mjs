@@ -3,10 +3,15 @@
  * Soar iMessage agent (study clone of flysoar's "text us" concierge).
  *
  * A local daemon that reads incoming iMessages from the Mac's Messages
- * database, runs an agent loop against the clone's own APIs (search,
- * details, book, cancel — Duffel TEST mode only), and replies in the
- * thread via AppleScript. With ANTHROPIC_API_KEY set it's a natural-
- * language Claude agent; without it, a plain command mode still works.
+ * database, runs an agent loop against the clone's APIs, and replies
+ * in-thread via AppleScript. It covers the app's whole surface:
+ *   search · offer details · seat maps · booking (multi-passenger, bags,
+ *   seats, passports, Protect, loyalty auto-attach) · orders + details ·
+ *   cancellation · price calendar · watches · profile (contact, travel
+ *   documents, preferences, notifications) · friends · loyalty
+ *   programmes · card vault (display-only) · feedback
+ * Deliberately NOT offered: account deletion (the agent account is shared).
+ * Everything runs on Duffel TEST fares — nothing real is ever ticketed.
  *
  *   node scripts/imessage-agent.mjs --repl    terminal REPL (no Messages)
  *   node scripts/imessage-agent.mjs           Messages daemon
@@ -31,8 +36,7 @@
  *
  * macOS setup (daemon mode): Messages signed in; the terminal running this
  * needs Full Disk Access (chat.db) and Automation → Messages (first send
- * prompts). Booking always requires an explicit "yes" from the sender and
- * refuses live-mode offers.
+ * prompts). Booking/cancelling always requires an explicit "yes".
  */
 
 import { execFile } from "node:child_process";
@@ -59,7 +63,7 @@ function loadEnv() {
 }
 
 const env = loadEnv();
-const BASE = env.SOAR_BASE ?? "http://localhost:3000";
+const BASE = (env.SOAR_BASE ?? "http://localhost:3000").replace(/\/+$/, "");
 const SUPA_URL = env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPA_KEY = env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const MODEL = env.SOAR_AGENT_MODEL ?? "claude-sonnet-5";
@@ -70,7 +74,7 @@ const PROJECT_REF = SUPA_URL ? new URL(SUPA_URL).hostname.split(".")[0] : "";
 
 /* ------------------------- Supabase agent session ------------------------ */
 
-let session = null; // { access_token, refresh_token, expires_at }
+let session = null; // { access_token, refresh_token, expires_at, user }
 
 async function grant(body) {
   const res = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=${body.grant_type}`, {
@@ -98,6 +102,8 @@ async function ensureSession() {
   return session;
 }
 
+const uid = () => session?.user?.id ?? null;
+
 /** The app reads Supabase cookies; hand it our session in cookie form. */
 function cookieHeader() {
   if (!session) return "";
@@ -124,14 +130,33 @@ async function api(path, init = {}) {
   return { ok: res.ok, status: res.status, body };
 }
 
-async function rest(path) {
+/** Direct Supabase REST (RLS-scoped to the agent user). */
+async function rest(path, init = {}) {
   await ensureSession();
-  if (!session) return null;
+  if (!session) return { ok: false, body: { message: "not signed in" } };
   const res = await fetch(`${SUPA_URL}/rest/v1${path}`, {
-    headers: { apikey: SUPA_KEY, Authorization: `Bearer ${session.access_token}` },
+    ...init,
+    headers: {
+      apikey: SUPA_KEY,
+      Authorization: `Bearer ${session.access_token}`,
+      "Content-Type": "application/json",
+      Prefer: init.method && init.method !== "GET" ? "return=representation" : "count=none",
+      ...(init.headers ?? {}),
+    },
   });
-  return res.ok ? res.json() : null;
+  let body = null;
+  try {
+    body = await res.json();
+  } catch {
+    body = null;
+  }
+  return { ok: res.ok, status: res.status, body };
 }
+
+const needsAccount = () =>
+  env.SOAR_AGENT_EMAIL
+    ? null
+    : { error: "Account features are off — set SOAR_AGENT_EMAIL/SOAR_AGENT_PASSWORD in .env." };
 
 /* ------------------------------ clone tools ------------------------------ */
 
@@ -162,17 +187,21 @@ function offerLine(offer, i) {
   return `${i + 1}) ${offer.ownerName} · ${fmtTime(s.departure)}→${fmtTime(s.arrival)} · ${stops} · ${dur} · $${Math.round(offer.displayUSD)} ${kind}`;
 }
 
+const yymmdd = (iso) => iso.slice(2).replace(/-/g, "");
+
 async function searchFlights(state, args) {
   const from = await resolvePlace(args.origin);
   const to = await resolvePlace(args.destination);
   if (!from || !to) return { error: "Couldn't resolve those places — try airport codes like CEB or HND." };
+  const adults = Math.min(9, Math.max(1, args.adults ?? 1));
+  const cabin = args.cabin ?? "economy";
   const params = new URLSearchParams({
     origin: from.iata,
     destination: to.iata,
     departDate: args.depart_date,
     tripType: args.return_date ? "round_trip" : "one_way",
-    adults: String(args.adults ?? 1),
-    cabin: args.cabin ?? "economy",
+    adults: String(adults),
+    cabin,
   });
   if (args.return_date) params.set("returnDate", args.return_date);
   if (from.cityKey) params.set("origin_any", from.cityKey);
@@ -212,9 +241,23 @@ async function searchFlights(state, args) {
     .sort((a, b) => a.displayUSD - b.displayUSD)
     .slice(0, 40);
   state.offers = sorted;
+
+  // Remember the query — watches store a replayable search URL.
+  const sp = new URLSearchParams();
+  if (from.cityKey) sp.set("origin_any", from.cityKey);
+  if (to.cityKey) sp.set("destination_any", to.cityKey);
+  if (adults !== 1) sp.set("adults", String(adults));
+  if (cabin !== "economy") sp.set("cabin", cabin);
+  state.lastSearchUrl =
+    `/flights/${from.iata.toLowerCase()}/${to.iata.toLowerCase()}/${yymmdd(args.depart_date)}` +
+    (args.return_date ? `/${yymmdd(args.return_date)}` : "") +
+    (sp.size ? `?${sp}` : "");
+  state.lastRoute = { origin: from.iata, destination: to.iata, cabin };
+
   if (sorted.length === 0) return { error: "No flights found for that search." };
   return {
     route: `${from.iata}→${to.iata} ${args.depart_date}${args.return_date ? ` / ${args.return_date}` : ""}`,
+    travelers: adults,
     count: sorted.length,
     top: sorted.slice(0, 8).map(offerLine),
   };
@@ -225,56 +268,167 @@ async function offerDetails(state, index) {
   if (!offer) return { error: `No option ${index} — search first.` };
   const { ok, body } = await api(`/api/offers/${offer.id}`);
   if (!ok) return { error: "That offer expired — search again for fresh prices." };
-  const bags = (body.services ?? []).filter((s) => s.type === "baggage").length;
+  const bags = (body.services ?? []).filter((s) => s.type === "baggage");
   return {
     option: index,
     airline: offer.ownerName,
-    total_usd: offer.displayUSD,
+    total_usd: Math.round(offer.displayUSD),
     live_mode: offer.liveMode,
     refundable: body.offer?.conditions?.refundBeforeDeparture?.allowed ?? null,
-    add_on_bags_available: bags,
-    passengers_required: (body.passengers ?? []).length,
-    identity_documents_required: body.offer?.passengerIdentityDocumentsRequired ?? false,
+    changeable: body.offer?.conditions?.changeBeforeDeparture?.allowed ?? null,
+    emissions_kg: body.offer?.totalEmissionsKg ?? null,
+    add_on_bags: bags.map((b) => `${b.totalAmount} ${b.totalCurrency} (max ${b.maximumQuantity})`),
+    travelers: (body.passengers ?? []).length,
+    passport_required: body.offer?.passengerIdentityDocumentsRequired ?? false,
+    protect_fee_usd: protectFee(offer.displayUSD),
+    slices: offer.slices.map(
+      (s) =>
+        `${s.origin}→${s.destination} ${s.departure.slice(0, 16).replace("T", " ")} (${s.segments.map((seg) => seg.flightNumber).join(", ")})`,
+    ),
   };
+}
+
+async function listSeats(state, index) {
+  const offer = state.offers[index - 1];
+  if (!offer) return { error: `No option ${index} — search first.` };
+  const detail = await api(`/api/offers/${offer.id}`);
+  if (!detail.ok) return { error: "Offer expired — search again." };
+  const firstPax = detail.body.passengers?.[0]?.id;
+  const seatMap = await api(`/api/offers/${offer.id}/seat-map`);
+  if (!seatMap.ok) return { error: "No seat map for this flight (test mode: reliable on Duffel Airways only)." };
+  const seats = [];
+  for (const map of seatMap.body.maps ?? []) {
+    for (const cabin of map.cabins ?? []) {
+      for (const row of cabin.rows ?? []) {
+        for (const section of row.sections ?? []) {
+          for (const el of section.elements ?? []) {
+            if (el.type === "seat" && el.services?.length) {
+              const svc = el.services.find((s) => s.passengerId === firstPax) ?? el.services[0];
+              seats.push(`${el.designator} (${svc.totalAmount} ${svc.totalCurrency})`);
+            }
+          }
+        }
+      }
+    }
+  }
+  if (seats.length === 0) return { error: "No selectable seats on this flight." };
+  return { available: seats.slice(0, 40), note: "Pass seat designators to book_flight (one per traveler, in order)." };
 }
 
 const protectFee = (usd) => Math.min(149, Math.max(19, Math.round(usd * 0.05)));
 
-async function bookFlight(state, args) {
-  if (!env.SOAR_AGENT_EMAIL) {
-    return { error: "Booking account not configured (SOAR_AGENT_EMAIL/PASSWORD in .env)." };
+async function seatServicesFor(offerId, designators, passengerIds) {
+  const seatMap = await api(`/api/offers/${offerId}/seat-map`);
+  if (!seatMap.ok) throw new Error("Seat map unavailable for this flight.");
+  const services = [];
+  const wanted = designators.map((d) => d.toUpperCase());
+  for (let i = 0; i < wanted.length; i++) {
+    let found = null;
+    for (const map of seatMap.body.maps ?? []) {
+      for (const cabin of map.cabins ?? []) {
+        for (const row of cabin.rows ?? []) {
+          for (const section of row.sections ?? []) {
+            for (const el of section.elements ?? []) {
+              if (el.type === "seat" && el.designator?.toUpperCase() === wanted[i]) {
+                found = el.services?.find((s) => s.passengerId === passengerIds[i]) ?? null;
+              }
+            }
+          }
+        }
+      }
+    }
+    if (!found) throw new Error(`Seat ${wanted[i]} isn't available for traveler ${i + 1}.`);
+    services.push({ id: found.id, quantity: 1 });
   }
+  return services;
+}
+
+async function bookFlight(state, args) {
+  const gate = needsAccount();
+  if (gate) return gate;
   const offer = state.offers[(args.index ?? 0) - 1];
   if (!offer) return { error: `No option ${args.index} — search first.` };
   if (offer.liveMode) return { error: "Refusing: that offer is live-mode. This clone books test fares only." };
-  if (args.confirmed !== true) {
-    const fee = args.protect ? protectFee(offer.displayUSD) : 0;
-    return {
-      needs_confirmation: true,
-      total_usd: offer.displayUSD + fee,
-      message: `Ask the traveler to reply "yes" to book option ${args.index} for $${offer.displayUSD + fee}${args.protect ? ` (incl. $${fee} Protect)` : ""}.`,
-    };
-  }
+
   const detail = await api(`/api/offers/${offer.id}`);
   if (!detail.ok) return { error: "Offer expired — search again before booking." };
-  const ids = (detail.body.passengers ?? []).map((p) => p.id);
-  const profile = (await rest("/profiles?select=email,phone"))?.[0] ?? {};
+  const paxIds = (detail.body.passengers ?? []).map((p) => p.id);
+  const travelers = args.passengers ?? [];
+  if (travelers.length !== paxIds.length) {
+    return {
+      error: `This fare has ${paxIds.length} traveler${paxIds.length > 1 ? "s" : ""} — provide exactly that many passengers (search with adults=N to change).`,
+    };
+  }
+  const passportRequired = detail.body.offer?.passengerIdentityDocumentsRequired ?? false;
+  if (passportRequired && travelers.some((t) => !t.passport_number || !t.passport_country || !t.passport_expiry)) {
+    return { error: "This airline requires passports: add passport_number, passport_country (2 letters) and passport_expiry (YYYY-MM-DD) for every traveler." };
+  }
+
   const fee = args.protect ? protectFee(offer.displayUSD) : 0;
+  const bagServices = [];
+  if (args.bags) {
+    const bag = (detail.body.services ?? []).find((s) => s.type === "baggage");
+    if (!bag) return { error: "No add-on bags are offered on this fare." };
+    bagServices.push({ id: bag.id, quantity: Math.min(args.bags, bag.maximumQuantity ?? 9) });
+  }
+
+  if (args.confirmed !== true) {
+    const extras = [
+      args.bags ? `${args.bags} bag(s)` : null,
+      args.seats?.length ? `seats ${args.seats.join(", ")}` : null,
+      args.protect ? `Protect $${fee}` : null,
+    ].filter(Boolean);
+    return {
+      needs_confirmation: true,
+      message: `Quote: $${Math.round(offer.displayUSD + fee)}${extras.length ? ` + ${extras.join(" + ")} (bag/seat prices added at checkout)` : ""} on test balance. The traveler must reply "yes" before you call book_flight with confirmed=true.`,
+    };
+  }
+
+  let seatServices = [];
+  if (args.seats?.length) {
+    try {
+      seatServices = await seatServicesFor(offer.id, args.seats, paxIds);
+    } catch (err) {
+      return { error: err.message };
+    }
+  }
+  const loyalty = await rest("/loyalty_programmes?select=airline_iata,account_number");
+  const loyaltyAccounts = (loyalty.ok ? loyalty.body : [])
+    .filter((l) => /^[A-Z0-9]{2}$/.test(l.airline_iata ?? ""))
+    .map((l) => ({ airline_iata_code: l.airline_iata, account_number: l.account_number }));
+
+  const profile = (await rest("/profiles?select=email,phone")).body?.[0] ?? {};
   const booked = await api("/api/book", {
     method: "POST",
     body: JSON.stringify({
       offerId: offer.id,
-      passengers: ids.map((id) => ({
-        id,
-        title: args.gender === "m" ? "mr" : "ms",
-        given_name: args.given_name,
-        family_name: args.family_name,
-        born_on: args.born_on,
-        gender: args.gender,
-        email: args.email || profile.email || env.SOAR_AGENT_EMAIL,
-        phone_number: args.phone || profile.phone || "+14155550123",
-      })),
-      services: [],
+      passengers: paxIds.map((id, i) => {
+        const t = travelers[i];
+        return {
+          id,
+          title: t.gender === "m" ? "mr" : "ms",
+          given_name: t.given_name,
+          family_name: t.family_name,
+          born_on: t.born_on,
+          gender: t.gender,
+          email: t.email || profile.email || env.SOAR_AGENT_EMAIL,
+          phone_number: t.phone || profile.phone || "+14155550123",
+          ...(t.passport_number
+            ? {
+                identity_documents: [
+                  {
+                    type: "passport",
+                    unique_identifier: t.passport_number,
+                    issuing_country_code: (t.passport_country ?? "").toUpperCase(),
+                    expires_on: t.passport_expiry,
+                  },
+                ],
+              }
+            : {}),
+        };
+      }),
+      services: [...bagServices, ...seatServices],
+      loyaltyAccounts,
       protect: Boolean(args.protect),
       protectFeeUSD: fee,
       displayTotalUSD: offer.displayUSD + fee,
@@ -286,24 +440,50 @@ async function bookFlight(state, args) {
     pnr: booked.body.bookingReference,
     order_id: booked.body.orderId,
     charged: `${booked.body.totalAmount} ${booked.body.totalCurrency} (test balance)`,
+    loyalty_attached: loyaltyAccounts.length,
   };
 }
 
 async function myFlights() {
+  const gate = needsAccount();
+  if (gate) return gate;
   const rows = await rest(
     "/orders?select=duffel_order_id,booking_reference,status,total_amount,total_currency,created_at&order=created_at.desc&limit=8",
   );
-  if (!rows) return { error: "Sign-in for the agent account failed — check .env credentials." };
-  if (rows.length === 0) return { flights: [] };
+  if (!rows.ok) return { error: "Sign-in for the agent account failed — check .env credentials." };
   return {
-    flights: rows.map(
-      (r) =>
-        `${r.booking_reference} · ${r.status} · ${r.total_amount} ${r.total_currency} · order ${r.duffel_order_id}`,
+    flights: rows.body.map(
+      (r) => `${r.booking_reference} · ${r.status} · ${r.total_amount} ${r.total_currency} · order ${r.duffel_order_id}`,
     ),
   };
 }
 
+async function orderDetails(orderId) {
+  const gate = needsAccount();
+  if (gate) return gate;
+  const rows = await rest(
+    `/orders?duffel_order_id=eq.${encodeURIComponent(orderId)}&select=booking_reference,status,total_amount,total_currency,protect,protect_fee_usd,refund_amount,refund_currency,created_at,offer_snapshot`,
+  );
+  if (!rows.ok || !rows.body?.[0]) return { error: "No such order on this account." };
+  const o = rows.body[0];
+  const slices = (o.offer_snapshot?.slices ?? []).map(
+    (s) =>
+      `${s.origin}→${s.destination} ${String(s.departure ?? "").slice(0, 16).replace("T", " ")} · ${(s.segments ?? []).map((x) => x.flightNumber).join(", ")}`,
+  );
+  return {
+    pnr: o.booking_reference,
+    status: o.status,
+    total: `${o.total_amount} ${o.total_currency}`,
+    protect: o.protect ? `yes ($${o.protect_fee_usd})` : "no",
+    refund: o.refund_amount ? `${o.refund_amount} ${o.refund_currency}` : null,
+    booked_at: o.created_at?.slice(0, 10),
+    itinerary: slices,
+  };
+}
+
 async function cancelOrder(args) {
+  const gate = needsAccount();
+  if (gate) return gate;
   if (args.confirmed !== true) {
     const quote = await api(`/api/orders/${args.order_id}/cancel`, { method: "POST" });
     if (!quote.ok) return { error: `Cancel quote failed: ${quote.body?.error ?? quote.status}` };
@@ -322,13 +502,240 @@ async function cancelOrder(args) {
   return { cancelled: true };
 }
 
+async function priceCalendar(args) {
+  const from = await resolvePlace(args.origin);
+  const to = await resolvePlace(args.destination);
+  if (!from || !to) return { error: "Couldn't resolve those places." };
+  let { start, end } = args;
+  if (args.month && /^\d{4}-\d{2}$/.test(args.month)) {
+    start = `${args.month}-01`;
+    const [y, m] = args.month.split("-").map(Number);
+    end = `${args.month}-${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`;
+  }
+  const params = new URLSearchParams({ origin: from.iata, destination: to.iata });
+  if (start) params.set("start", start);
+  if (end) params.set("end", end);
+  const res = await api(`/api/price-calendar?${params}`);
+  if (!res.ok) return { error: "Calendar unavailable." };
+  const prices = res.body.prices ?? [];
+  if (prices.length === 0) return { error: "No data for that window." };
+  const cheapest = [...prices].sort((a, b) => a.amount - b.amount).slice(0, 6);
+  return {
+    route: `${from.iata}→${to.iata}`,
+    average_usd: res.body.average_amount,
+    cheapest_days: cheapest.map(
+      (p) => `${p.date} ${p.source === "estimate" ? "~" : ""}$${p.amount} (${p.tier})`,
+    ),
+    note: "~ marks estimates; searched days show observed fares.",
+  };
+}
+
+async function manageWatches(state, args) {
+  const gate = needsAccount();
+  if (gate) return gate;
+  if (args.action === "add") {
+    const offer = state.offers[(args.index ?? 0) - 1];
+    if (!offer) return { error: `No option ${args.index} — search first.` };
+    const flights = offer.slices
+      .flatMap((s) => s.segments.map((seg) => seg.flightNumber.replace(/\s/g, "")))
+      .join(",");
+    const dates = offer.slices.map((s) => s.departure.slice(0, 10)).join("|");
+    const cabin = state.lastRoute?.cabin ?? "economy";
+    const res = await api("/api/watches", {
+      method: "POST",
+      body: JSON.stringify({
+        itineraryKey: `${flights}@${dates}@${cabin}`,
+        searchUrl: state.lastSearchUrl ?? "/",
+        label: `${offer.slices[0]?.origin} ${offer.slices.length > 1 ? "⇄" : "→"} ${offer.slices[0]?.destination} · ${offer.slices[0]?.departure.slice(0, 10)}`,
+        cabin,
+        priceUSD: Math.round(offer.displayUSD),
+      }),
+    });
+    if (!res.ok) return { error: `Couldn't save the watch (${res.status}).` };
+    return { watching: true, note: "Price changes surface in My Flights (and via list watches)." };
+  }
+  if (args.action === "remove") {
+    if (!args.watch_id) return { error: "watch_id required." };
+    const res = await api(`/api/watches/${args.watch_id}`, { method: "DELETE" });
+    return res.ok ? { removed: true } : { error: `Couldn't remove (${res.status}).` };
+  }
+  if (args.action === "refresh") {
+    const res = await api("/api/watches/refresh", { method: "POST" });
+    return res.ok ? { refreshed: res.body?.refreshed ?? true } : { error: "Refresh failed." };
+  }
+  const rows = await rest(
+    "/watches?select=id,label,cabin,last_price_usd,delta_usd,last_checked_at&order=created_at.desc&limit=12",
+  );
+  if (!rows.ok) return { error: "Couldn't load watches." };
+  return {
+    watches: rows.body.map(
+      (w) =>
+        `${w.label} · ${w.last_price_usd ? `$${w.last_price_usd}` : "unpriced"}${w.delta_usd ? ` (${w.delta_usd > 0 ? "+" : ""}$${w.delta_usd})` : ""} · id ${w.id}`,
+    ),
+  };
+}
+
+/* ------------------------------ account tools ---------------------------- */
+
+const PROFILE_FIELDS = new Set([
+  "full_name", "nickname", "describes", "phone", "legal_name", "born_on",
+  "passport_number", "passport_country", "passport_expiry",
+  "known_traveler_number", "currency", "theme", "confirm_before_booking",
+  "summary_cards", "power_saver", "notif_flight_alerts", "notif_watched",
+  "notif_checkin", "notif_marketing", "beta_auto_checkin", "beta_price_drop",
+  "beta_agent_booking",
+]);
+
+async function getProfile() {
+  const gate = needsAccount();
+  if (gate) return gate;
+  const rows = await rest("/profiles?select=*");
+  const p = rows.body?.[0];
+  if (!p) return { error: "Profile not found." };
+  const out = {};
+  for (const [k, v] of Object.entries(p)) {
+    if (v !== null && v !== "" && !["id", "avatar_url", "created_at"].includes(k)) out[k] = v;
+  }
+  return out;
+}
+
+async function updateProfile(fields) {
+  const gate = needsAccount();
+  if (gate) return gate;
+  const patch = {};
+  for (const [k, v] of Object.entries(fields ?? {})) {
+    if (!PROFILE_FIELDS.has(k)) return { error: `Unknown or protected field: ${k}` };
+    patch[k] = v;
+  }
+  if (Object.keys(patch).length === 0) return { error: "Nothing to update." };
+  if (patch.currency && !/^[A-Z]{3}$/.test(patch.currency)) return { error: "currency must be a 3-letter code like USD or PHP." };
+  if (patch.theme && !["light", "dark", "system"].includes(patch.theme)) return { error: "theme must be light, dark or system." };
+  if (patch.phone && !/^\+[1-9]\d{6,14}$/.test(patch.phone)) return { error: "phone must be international format, e.g. +639171234567." };
+  const res = await rest(`/profiles?id=eq.${uid()}`, { method: "PATCH", body: JSON.stringify(patch) });
+  if (!res.ok) return { error: `Update failed: ${res.body?.message ?? res.status}` };
+  return { updated: Object.keys(patch) };
+}
+
+async function manageFriends(args) {
+  const gate = needsAccount();
+  if (gate) return gate;
+  if (args.action === "add") {
+    const res = await rest("/friends", {
+      method: "POST",
+      body: JSON.stringify({
+        user_id: uid(),
+        given_name: args.given_name,
+        family_name: args.family_name,
+        born_on: args.born_on,
+        gender: args.gender,
+        email: args.email ?? "",
+        phone: args.phone ?? "",
+      }),
+    });
+    if (!res.ok) return { error: `Couldn't add: ${res.body?.message ?? res.status}` };
+    return { added: `${args.given_name} ${args.family_name}`, id: res.body?.[0]?.id };
+  }
+  if (args.action === "remove") {
+    const res = await rest(`/friends?id=eq.${args.friend_id}`, { method: "DELETE" });
+    return res.ok ? { removed: true } : { error: "Couldn't remove." };
+  }
+  const rows = await rest("/friends?select=id,given_name,family_name,born_on,gender&order=created_at.desc&limit=20");
+  if (!rows.ok) return { error: "Couldn't load friends." };
+  return {
+    friends: rows.body.map((f) => `${f.given_name} ${f.family_name} (${f.born_on}, ${f.gender}) · id ${f.id}`),
+    note: "Use these details as passengers when booking for them.",
+  };
+}
+
+async function manageLoyalty(args) {
+  const gate = needsAccount();
+  if (gate) return gate;
+  if (args.action === "add") {
+    if (!/^[A-Z0-9]{2}$/i.test(args.airline_iata ?? "")) return { error: "airline_iata must be the 2-letter airline code (e.g. PR, ZZ)." };
+    const res = await rest("/loyalty_programmes", {
+      method: "POST",
+      body: JSON.stringify({
+        user_id: uid(),
+        airline_iata: args.airline_iata.toUpperCase(),
+        airline_name: args.airline_name ?? args.airline_iata.toUpperCase(),
+        account_number: args.account_number,
+      }),
+    });
+    if (!res.ok) return { error: `Couldn't add: ${res.body?.message ?? res.status}` };
+    return { added: true, note: "Attached automatically to future bookings." };
+  }
+  if (args.action === "remove") {
+    const res = await rest(`/loyalty_programmes?id=eq.${args.id}`, { method: "DELETE" });
+    return res.ok ? { removed: true } : { error: "Couldn't remove." };
+  }
+  const rows = await rest("/loyalty_programmes?select=id,airline_iata,airline_name,account_number");
+  if (!rows.ok) return { error: "Couldn't load loyalty programmes." };
+  return { programmes: rows.body.map((l) => `${l.airline_name} (${l.airline_iata}) ${l.account_number} · id ${l.id}`) };
+}
+
+async function manageCards(args) {
+  const gate = needsAccount();
+  if (gate) return gate;
+  if (args.action === "add") {
+    if (!/^\d{4}$/.test(args.last4 ?? "")) return { error: "last4 must be 4 digits (the vault is display-only — never send full card numbers)." };
+    const existing = await rest("/payment_cards?select=id");
+    const res = await rest("/payment_cards", {
+      method: "POST",
+      body: JSON.stringify({
+        user_id: uid(),
+        brand: (args.brand ?? "visa").toLowerCase(),
+        last4: args.last4,
+        exp_month: args.exp_month,
+        exp_year: args.exp_year,
+        cardholder: args.cardholder ?? null,
+        is_default: (existing.body?.length ?? 0) === 0,
+      }),
+    });
+    if (!res.ok) return { error: `Couldn't add: ${res.body?.message ?? res.status}` };
+    return { added: true, note: "Display-only vault — payments always use the Duffel test balance." };
+  }
+  if (args.action === "remove") {
+    const res = await rest(`/payment_cards?id=eq.${args.id}`, { method: "DELETE" });
+    return res.ok ? { removed: true } : { error: "Couldn't remove." };
+  }
+  const rows = await rest("/payment_cards?select=id,brand,last4,exp_month,exp_year,is_default");
+  if (!rows.ok) return { error: "Couldn't load cards." };
+  return {
+    cards: rows.body.map(
+      (c) => `${c.brand} •••• ${c.last4} ${String(c.exp_month).padStart(2, "0")}/${c.exp_year}${c.is_default ? " (default)" : ""} · id ${c.id}`,
+    ),
+  };
+}
+
+async function sendFeedback(message) {
+  const gate = needsAccount();
+  if (gate) return gate;
+  const res = await rest("/feedback", {
+    method: "POST",
+    body: JSON.stringify({ user_id: uid(), message }),
+  });
+  return res.ok ? { sent: true } : { error: "Couldn't log feedback." };
+}
+
 /* ----------------------------- Claude agent ------------------------------ */
+
+const PASSENGER_PROPS = {
+  given_name: { type: "string" },
+  family_name: { type: "string" },
+  born_on: { type: "string", description: "YYYY-MM-DD" },
+  gender: { type: "string", enum: ["m", "f"] },
+  email: { type: "string" },
+  phone: { type: "string" },
+  passport_number: { type: "string" },
+  passport_country: { type: "string", description: "2-letter country code" },
+  passport_expiry: { type: "string", description: "YYYY-MM-DD" },
+};
 
 const TOOLS = [
   {
     name: "search_flights",
     description:
-      "Search live flights. Origin/destination take city names or 3-letter airport codes. Dates are YYYY-MM-DD.",
+      "Search live flights. Origin/destination take city names or 3-letter codes. adults sets traveler count (1-9).",
     input_schema: {
       type: "object",
       properties: {
@@ -344,61 +751,155 @@ const TOOLS = [
   },
   {
     name: "offer_details",
-    description: "Details for a numbered option from the last search (bags, refundability, requirements).",
-    input_schema: {
-      type: "object",
-      properties: { index: { type: "integer" } },
-      required: ["index"],
-    },
+    description: "Details for a numbered option: refund/change rules, bags, passport requirement, Protect fee, flights.",
+    input_schema: { type: "object", properties: { index: { type: "integer" } }, required: ["index"] },
+  },
+  {
+    name: "list_seats",
+    description: "Available seats + prices for a numbered option (test mode: reliable on Duffel Airways).",
+    input_schema: { type: "object", properties: { index: { type: "integer" } }, required: ["index"] },
   },
   {
     name: "book_flight",
     description:
-      "Book a numbered option. Set confirmed=true ONLY after the traveler explicitly agreed to the exact total in this conversation. gender is m or f; born_on YYYY-MM-DD.",
+      "Book a numbered option. passengers must match the fare's traveler count, in order. Optional: bags (count), seats (designators, one per traveler), protect. Set confirmed=true ONLY after the traveler explicitly agreed to the quoted total in this conversation. Saved loyalty programmes attach automatically.",
     input_schema: {
       type: "object",
       properties: {
         index: { type: "integer" },
+        passengers: {
+          type: "array",
+          items: { type: "object", properties: PASSENGER_PROPS, required: ["given_name", "family_name", "born_on", "gender"] },
+        },
+        bags: { type: "integer" },
+        seats: { type: "array", items: { type: "string" } },
+        protect: { type: "boolean" },
+        confirmed: { type: "boolean" },
+      },
+      required: ["index", "passengers", "confirmed"],
+    },
+  },
+  { name: "my_flights", description: "List recent bookings on this account.", input_schema: { type: "object", properties: {} } },
+  {
+    name: "order_details",
+    description: "Full detail for one booking (itinerary, totals, Protect, refund) by order id.",
+    input_schema: { type: "object", properties: { order_id: { type: "string" } }, required: ["order_id"] },
+  },
+  {
+    name: "cancel_order",
+    description:
+      "Cancel a booking. First call without confirmed for the refund quote; then confirmed=true plus cancellation_id after the traveler agreed.",
+    input_schema: {
+      type: "object",
+      properties: { order_id: { type: "string" }, cancellation_id: { type: "string" }, confirmed: { type: "boolean" } },
+      required: ["order_id"],
+    },
+  },
+  {
+    name: "price_calendar",
+    description: "Cheapest days to fly a route. Give month=YYYY-MM or start/end dates.",
+    input_schema: {
+      type: "object",
+      properties: {
+        origin: { type: "string" },
+        destination: { type: "string" },
+        month: { type: "string" },
+        start: { type: "string" },
+        end: { type: "string" },
+      },
+      required: ["origin", "destination"],
+    },
+  },
+  {
+    name: "manage_watches",
+    description: "Price watches: list, add (index from last search), remove (watch_id), or refresh stale prices.",
+    input_schema: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: ["list", "add", "remove", "refresh"] },
+        index: { type: "integer" },
+        watch_id: { type: "string" },
+      },
+      required: ["action"],
+    },
+  },
+  { name: "get_profile", description: "Show the account profile (contact, travel documents, preferences, points).", input_schema: { type: "object", properties: {} } },
+  {
+    name: "update_profile",
+    description:
+      "Edit profile fields: full_name, nickname, describes, phone (+countrycode), legal_name, born_on, passport_number/passport_country/passport_expiry, known_traveler_number, currency (3 letters), theme (light|dark|system), and boolean toggles confirm_before_booking, summary_cards, power_saver, notif_flight_alerts, notif_watched, notif_checkin, notif_marketing, beta_auto_checkin, beta_price_drop, beta_agent_booking.",
+    input_schema: { type: "object", properties: { fields: { type: "object" } }, required: ["fields"] },
+  },
+  {
+    name: "manage_friends",
+    description: "Saved co-travelers: list, add (name/dob/gender), remove (friend_id). Use their details as booking passengers.",
+    input_schema: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: ["list", "add", "remove"] },
         given_name: { type: "string" },
         family_name: { type: "string" },
         born_on: { type: "string" },
         gender: { type: "string", enum: ["m", "f"] },
         email: { type: "string" },
         phone: { type: "string" },
-        protect: { type: "boolean" },
-        confirmed: { type: "boolean" },
+        friend_id: { type: "string" },
       },
-      required: ["index", "given_name", "family_name", "born_on", "gender", "confirmed"],
+      required: ["action"],
     },
   },
-  { name: "my_flights", description: "List recent bookings on this account.", input_schema: { type: "object", properties: {} } },
   {
-    name: "cancel_order",
-    description:
-      "Cancel a booking by order id. First call without confirmed to get the refund quote; set confirmed=true plus cancellation_id only after the traveler agreed.",
+    name: "manage_loyalty",
+    description: "Frequent-flyer programmes: list, add (airline_iata 2 letters + account_number), remove (id). They auto-attach to bookings.",
     input_schema: {
       type: "object",
       properties: {
-        order_id: { type: "string" },
-        cancellation_id: { type: "string" },
-        confirmed: { type: "boolean" },
+        action: { type: "string", enum: ["list", "add", "remove"] },
+        airline_iata: { type: "string" },
+        airline_name: { type: "string" },
+        account_number: { type: "string" },
+        id: { type: "string" },
       },
-      required: ["order_id"],
+      required: ["action"],
     },
+  },
+  {
+    name: "manage_cards",
+    description:
+      "Display-only card vault: list, add (brand + last4 + exp_month + exp_year — NEVER a full card number), remove (id). Payments always use test balance.",
+    input_schema: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: ["list", "add", "remove"] },
+        brand: { type: "string" },
+        last4: { type: "string" },
+        exp_month: { type: "integer" },
+        exp_year: { type: "integer" },
+        cardholder: { type: "string" },
+        id: { type: "string" },
+      },
+      required: ["action"],
+    },
+  },
+  {
+    name: "send_feedback",
+    description: "Log feedback about the product.",
+    input_schema: { type: "object", properties: { message: { type: "string" } }, required: ["message"] },
   },
 ];
 
 const SYSTEM = `You are Soar's iMessage travel agent (a private STUDY CLONE running on Duffel's test sandbox — fares are fake, payments use test balance, no real tickets are issued; never claim otherwise).
 Today is ${new Date().toISOString().slice(0, 10)}.
 Style: text-message short. Plain text only — no markdown, no bullets, at most a few numbered lines. One question at a time.
-Flow: resolve vague dates to concrete YYYY-MM-DD (ask if unsure). After searching, show at most 5 numbered options. Before booking you MUST state the exact total and get an explicit yes; only then call book_flight with confirmed=true. Collect passenger given name, family name, date of birth, gender first. Same confirm rule for cancellations.`;
+You can do everything the app can: search, compare, seat maps, bags, multi-traveler bookings (friends' saved details help), Protect, cancellations, price calendars, watches, and full account management (profile, phone, travel documents, preferences, notifications, friends, loyalty, card vault, feedback).
+Hard rules: resolve vague dates to YYYY-MM-DD (ask if unsure). Before book_flight or a cancel confirmation you MUST state the exact quoted total/refund and get an explicit yes — only then pass confirmed=true. Collect every traveler's name, date of birth and gender (plus passports when required). NEVER accept full card numbers — the vault stores brand + last 4 only. Account deletion is not something you can do; point people to the web app's Settings.`;
 
 async function runClaude(state, userText) {
   state.history.push({ role: "user", content: userText });
   while (state.history.length > 24) state.history.shift();
   if (state.history[0]?.role !== "user") state.history.shift();
 
-  for (let round = 0; round < 8; round++) {
+  for (let round = 0; round < 10; round++) {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -428,11 +929,22 @@ async function runClaude(state, userText) {
     for (const use of toolUses) {
       let result;
       try {
-        if (use.name === "search_flights") result = await searchFlights(state, use.input);
-        else if (use.name === "offer_details") result = await offerDetails(state, use.input.index);
-        else if (use.name === "book_flight") result = await bookFlight(state, use.input);
+        const a = use.input;
+        if (use.name === "search_flights") result = await searchFlights(state, a);
+        else if (use.name === "offer_details") result = await offerDetails(state, a.index);
+        else if (use.name === "list_seats") result = await listSeats(state, a.index);
+        else if (use.name === "book_flight") result = await bookFlight(state, a);
         else if (use.name === "my_flights") result = await myFlights();
-        else if (use.name === "cancel_order") result = await cancelOrder(use.input);
+        else if (use.name === "order_details") result = await orderDetails(a.order_id);
+        else if (use.name === "cancel_order") result = await cancelOrder(a);
+        else if (use.name === "price_calendar") result = await priceCalendar(a);
+        else if (use.name === "manage_watches") result = await manageWatches(state, a);
+        else if (use.name === "get_profile") result = await getProfile();
+        else if (use.name === "update_profile") result = await updateProfile(a.fields);
+        else if (use.name === "manage_friends") result = await manageFriends(a);
+        else if (use.name === "manage_loyalty") result = await manageLoyalty(a);
+        else if (use.name === "manage_cards") result = await manageCards(a);
+        else if (use.name === "send_feedback") result = await sendFeedback(a.message);
         else result = { error: `Unknown tool ${use.name}` };
       } catch (err) {
         result = { error: String(err?.message ?? err) };
@@ -447,17 +959,22 @@ async function runClaude(state, userText) {
 /* --------------------------- command fallback ---------------------------- */
 
 const HELP = `Soar agent commands:
-search <from> <to> <YYYY-MM-DD> [return YYYY-MM-DD]
-details <n>
-book <n> <First> <Last> <YYYY-MM-DD> <m|f>
-flights
-cancel <order id>
-yes  (confirms a pending booking/cancel)`;
+search <from> <to> <YYYY-MM-DD> [return]   details <n>   seats <n>
+book <n> <First> <Last> <YYYY-MM-DD> <m|f> [bags=N] [seat=12A] [protect]
+flights   order <order id>   cancel <order id>
+calendar <from> <to> <YYYY-MM>
+watch <n>   watches   unwatch <id>
+profile   set <field> <value>
+friends   friend add <First> <Last> <YYYY-MM-DD> <m|f>   friend rm <id>
+loyalty   loyalty add <XX> <number>   loyalty rm <id>
+cards   card add <brand> <last4> <MM> <YYYY>   card rm <id>
+feedback <text>   yes (confirms a pending booking/cancel)`;
 
 async function runCommands(state, text) {
   const t = text.trim();
-  const [cmd, ...rest] = t.split(/\s+/);
+  const [cmd, ...rest_] = t.split(/\s+/);
   const lower = (cmd ?? "").toLowerCase();
+  const sub = (rest_[0] ?? "").toLowerCase();
 
   if (lower === "yes" && state.pending) {
     const pending = state.pending;
@@ -467,42 +984,123 @@ async function runCommands(state, text) {
         ? await bookFlight(state, { ...pending.args, confirmed: true })
         : await cancelOrder({ ...pending.args, confirmed: true });
     if (result.error) return result.error;
-    if (pending.kind === "book") return `Booked! PNR ${result.pnr} — charged ${result.charged}. Order ${result.order_id}.`;
+    if (pending.kind === "book")
+      return `Booked! PNR ${result.pnr} — charged ${result.charged}. Order ${result.order_id}.`;
     return "Cancelled. Any refund follows the quote.";
   }
-  if (lower === "search" && rest.length >= 3) {
-    const [from, to, dep, ret] = rest;
-    const result = await searchFlights(state, {
-      origin: from,
-      destination: to,
-      depart_date: dep,
-      return_date: ret,
-    });
+  if (lower === "search" && rest_.length >= 3) {
+    const [from, to, dep, ret] = rest_;
+    const result = await searchFlights(state, { origin: from, destination: to, depart_date: dep, return_date: ret });
     if (result.error) return result.error;
-    return `${result.route} — ${result.count} found (test fares):\n${result.top.join("\n")}\nReply "details <n>" or "book <n> First Last YYYY-MM-DD m|f".`;
+    return `${result.route} — ${result.count} found (test fares):\n${result.top.join("\n")}\nReply "details <n>", "seats <n>" or "book <n> First Last YYYY-MM-DD m|f".`;
   }
-  if (lower === "details" && rest[0]) {
-    const result = await offerDetails(state, Number(rest[0]));
-    return result.error ?? JSON.stringify(result, null, 1).replace(/[{}",]/g, "").trim();
+  if (lower === "details" && rest_[0]) {
+    const result = await offerDetails(state, Number(rest_[0]));
+    return result.error ?? JSON.stringify(result, null, 1).replace(/[{}",[\]]/g, "").replace(/\n\s*\n/g, "\n").trim();
   }
-  if (lower === "book" && rest.length >= 5) {
-    const [n, first, last, dob, gender] = rest;
-    const args = { index: Number(n), given_name: first, family_name: last, born_on: dob, gender };
+  if (lower === "seats" && rest_[0]) {
+    const result = await listSeats(state, Number(rest_[0]));
+    return result.error ?? `Seats: ${result.available.join(", ")}`;
+  }
+  if (lower === "book" && rest_.length >= 5) {
+    const [n, first, last_, dob, gender, ...extras] = rest_;
+    const opts = Object.fromEntries(extras.filter((e) => e.includes("=")).map((e) => e.split("=")));
+    const args = {
+      index: Number(n),
+      passengers: [{ given_name: first, family_name: last_, born_on: dob, gender }],
+      bags: opts.bags ? Number(opts.bags) : undefined,
+      seats: opts.seat ? [opts.seat] : undefined,
+      protect: extras.includes("protect"),
+    };
     const result = await bookFlight(state, { ...args, confirmed: false });
     if (result.error) return result.error;
     state.pending = { kind: "book", args };
-    return `Total $${result.total_usd} (test balance). Reply "yes" to book.`;
+    return result.message.replace("The traveler must reply", "Reply").replace(" before you call book_flight with confirmed=true", "");
   }
   if (lower === "flights") {
     const result = await myFlights();
     if (result.error) return result.error;
     return result.flights.length ? result.flights.join("\n") : "No bookings yet.";
   }
-  if (lower === "cancel" && rest[0]) {
-    const result = await cancelOrder({ order_id: rest[0] });
+  if (lower === "order" && rest_[0]) {
+    const result = await orderDetails(rest_[0]);
+    return result.error ?? JSON.stringify(result, null, 1).replace(/[{}",[\]]/g, "").replace(/\n\s*\n/g, "\n").trim();
+  }
+  if (lower === "cancel" && rest_[0]) {
+    const result = await cancelOrder({ order_id: rest_[0] });
     if (result.error) return result.error;
-    state.pending = { kind: "cancel", args: { order_id: rest[0], cancellation_id: result.cancellation_id } };
+    state.pending = { kind: "cancel", args: { order_id: rest_[0], cancellation_id: result.cancellation_id } };
     return `Refund: ${result.refund}. Reply "yes" to confirm cancellation.`;
+  }
+  if (lower === "calendar" && rest_.length >= 3) {
+    const result = await priceCalendar({ origin: rest_[0], destination: rest_[1], month: rest_[2] });
+    return result.error ?? `${result.route} avg $${result.average_usd}\n${result.cheapest_days.join("\n")}`;
+  }
+  if (lower === "watch" && rest_[0]) {
+    const result = await manageWatches(state, { action: "add", index: Number(rest_[0]) });
+    return result.error ?? "Watching — price changes surface here and in My Flights.";
+  }
+  if (lower === "watches") {
+    const result = await manageWatches(state, { action: "list" });
+    return result.error ?? (result.watches.length ? result.watches.join("\n") : "No watches.");
+  }
+  if (lower === "unwatch" && rest_[0]) {
+    const result = await manageWatches(state, { action: "remove", watch_id: rest_[0] });
+    return result.error ?? "Watch removed.";
+  }
+  if (lower === "profile") {
+    const result = await getProfile();
+    return result.error ?? JSON.stringify(result, null, 1).replace(/[{}",]/g, "").trim();
+  }
+  if (lower === "set" && rest_.length >= 2) {
+    const [field, ...value] = rest_;
+    let v = value.join(" ");
+    if (v === "true") v = true;
+    else if (v === "false") v = false;
+    const result = await updateProfile({ [field]: v });
+    return result.error ?? `Updated ${result.updated.join(", ")}.`;
+  }
+  if (lower === "friends") {
+    const result = await manageFriends({ action: "list" });
+    return result.error ?? (result.friends.length ? result.friends.join("\n") : "No saved friends.");
+  }
+  if (lower === "friend" && sub === "add" && rest_.length >= 5) {
+    const [, first, last_, dob, gender] = rest_;
+    const result = await manageFriends({ action: "add", given_name: first, family_name: last_, born_on: dob, gender });
+    return result.error ?? `Saved ${result.added}.`;
+  }
+  if (lower === "friend" && sub === "rm" && rest_[1]) {
+    const result = await manageFriends({ action: "remove", friend_id: rest_[1] });
+    return result.error ?? "Removed.";
+  }
+  if (lower === "loyalty" && rest_.length === 0) {
+    const result = await manageLoyalty({ action: "list" });
+    return result.error ?? (result.programmes.length ? result.programmes.join("\n") : "No loyalty programmes.");
+  }
+  if (lower === "loyalty" && sub === "add" && rest_.length >= 3) {
+    const result = await manageLoyalty({ action: "add", airline_iata: rest_[1], account_number: rest_[2] });
+    return result.error ?? "Added — it attaches to future bookings.";
+  }
+  if (lower === "loyalty" && sub === "rm" && rest_[1]) {
+    const result = await manageLoyalty({ action: "remove", id: rest_[1] });
+    return result.error ?? "Removed.";
+  }
+  if (lower === "cards") {
+    const result = await manageCards({ action: "list" });
+    return result.error ?? (result.cards.length ? result.cards.join("\n") : "No cards in the vault.");
+  }
+  if (lower === "card" && sub === "add" && rest_.length >= 5) {
+    const [, brand, last4, mm, yyyy] = rest_;
+    const result = await manageCards({ action: "add", brand, last4, exp_month: Number(mm), exp_year: Number(yyyy) });
+    return result.error ?? "Card saved (display-only vault).";
+  }
+  if (lower === "card" && sub === "rm" && rest_[1]) {
+    const result = await manageCards({ action: "remove", id: rest_[1] });
+    return result.error ?? "Removed.";
+  }
+  if (lower === "feedback" && rest_.length > 0) {
+    const result = await sendFeedback(rest_.join(" "));
+    return result.error ?? "Thanks — feedback logged.";
   }
   return HELP;
 }
@@ -521,8 +1119,8 @@ function decodeAttributedBody(hexStr) {
   const raw = Buffer.from(hexStr, "hex").toString("latin1");
   const at = raw.indexOf("NSString");
   const slice = at === -1 ? raw : raw.slice(at + 8);
-  const runs = slice.match(/[\x20-\x7E -￿]{2,}/g) ?? [];
-  return runs.sort((a, b) => b.length - a.length)[0]?.replace(/^[+]+/, "").trim() ?? "";
+  const runs = slice.match(/[\x20-\x7E -￿]{2,}/g) ?? [];
+  return runs.sort((a, b) => b.length - a.length)[0]?.replace(/^[+]+/, "").trim() ?? "";
 }
 
 const normalize = (h) => (h ?? "").toLowerCase().replace(/[\s\-()]/g, "");
@@ -599,7 +1197,7 @@ async function handleText(chatKey, text) {
 
 async function replLoop() {
   console.log(
-    `Soar agent REPL · ${env.ANTHROPIC_API_KEY ? `Claude (${MODEL})` : "command mode (no ANTHROPIC_API_KEY)"} · booking ${env.SOAR_AGENT_EMAIL ? "on" : "off"}`,
+    `Soar agent REPL · ${env.ANTHROPIC_API_KEY ? `Claude (${MODEL})` : "command mode (no ANTHROPIC_API_KEY)"} · booking ${env.SOAR_AGENT_EMAIL ? "on" : "off"} · base ${BASE}`,
   );
   if (!env.ANTHROPIC_API_KEY) console.log(HELP);
   const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -638,7 +1236,7 @@ async function daemonLoop() {
     process.exit(1);
   }
   console.log(
-    `Soar iMessage agent up · ${openMode ? "OPEN to everyone (1:1 iMessage only, rate-limited)" : `watching for ${explicit.join(", ")}`} · replies prefixed "${MARKER.trim()}"`,
+    `Soar iMessage agent up · base ${BASE} · ${openMode ? "OPEN to everyone (1:1 iMessage only, rate-limited)" : `watching for ${explicit.join(", ")}`} · replies prefixed "${MARKER.trim()}"`,
   );
 
   setInterval(async () => {

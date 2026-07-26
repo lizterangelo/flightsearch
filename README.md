@@ -79,9 +79,18 @@ node scripts/smoke.mjs --book [base]   # + full sandbox booking incl. seat,
 flysoar has a "text us" concierge; the clone ships a local equivalent:
 `scripts/imessage-agent.mjs`, a daemon that reads incoming iMessages from
 the Mac's `~/Library/Messages/chat.db`, runs an agent loop against this
-app's own APIs (search → details → book → cancel, **test fares only**),
-and replies in-thread via AppleScript. No new dependencies — it uses the
-macOS-bundled `sqlite3` and `osascript`.
+app's APIs, and replies in-thread via AppleScript. No new dependencies —
+it uses the macOS-bundled `sqlite3` and `osascript`. It covers the whole
+product surface (**test fares only**): search · offer details · seat maps
+· booking with bags, seats, passports, Protect, multi-traveler and
+auto-attached loyalty · orders + order detail · cancellation (quote →
+confirm) · price calendar · price watches (add/list/remove/refresh) ·
+profile editing (name, phone, travel documents, currency, theme,
+notification + beta toggles) · saved friends · loyalty programmes ·
+display-only card vault · feedback. Account deletion is deliberately not
+offered (the agent account is shared) — that stays in the web app.
+`SOAR_BASE` points it at any deployment of this app (e.g. your Vercel
+URL); it defaults to localhost.
 
 ```bash
 node scripts/imessage-agent.mjs --repl   # try it in the terminal first
