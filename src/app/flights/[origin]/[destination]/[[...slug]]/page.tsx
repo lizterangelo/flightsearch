@@ -11,6 +11,7 @@ import FilterBar, {
 } from "@/components/results/FilterBar";
 import FlexDateStrip from "@/components/results/FlexDateStrip";
 import FlightCard from "@/components/results/FlightCard";
+import LoadingBar from "@/components/results/LoadingBar";
 import ResultsHeader from "@/components/results/ResultsHeader";
 import SkeletonCard from "@/components/results/SkeletonCard";
 import SortMenu from "@/components/results/SortMenu";
@@ -179,6 +180,7 @@ function FlightsContent({
 
   return (
     <main className="mx-auto w-full max-w-6xl px-6 pb-24">
+      <LoadingBar active={isStreaming} />
       <div className="sticky top-0 z-40 -mx-6 bg-gradient-to-b from-[#070f20] via-[#070f20]/95 to-transparent px-6 pt-4 pb-5">
         <SearchBar
           compact

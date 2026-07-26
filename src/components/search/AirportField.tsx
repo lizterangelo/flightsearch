@@ -89,9 +89,10 @@ function PlaceRow({ place }: { place: Place }) {
 }
 
 /**
- * From/To field: shows the picked place ("Tokyo (any)" / "Cebu (CEB)") and
- * opens a places-autocomplete popover while typing (metros, airports,
- * nearby suggestions with distance).
+ * From/To field with places autocomplete (metros, airports, nearby with
+ * distance). Two shapes:
+ *   cell — the desktop pill-bar cell (label above value)
+ *   row  — the mobile stacked-card row (leading icon + value)
  */
 export default function AirportField({
   label,
@@ -99,12 +100,16 @@ export default function AirportField({
   onChange,
   placeholder,
   autoFocusOnMount = false,
+  variant = "cell",
+  rowIcon,
 }: {
   label: string;
   value: PlaceSelection | null;
   onChange: (selection: PlaceSelection) => void;
   placeholder: string;
   autoFocusOnMount?: boolean;
+  variant?: "cell" | "row";
+  rowIcon?: React.ReactNode;
 }) {
   const [editing, setEditing] = useState(autoFocusOnMount);
   const [query, setQuery] = useState("");
@@ -132,6 +137,84 @@ export default function AirportField({
     setEditing(false);
     setQuery("");
   };
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlight((h) => Math.min(h + 1, places.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlight((h) => Math.max(h - 1, 0));
+    } else if (e.key === "Enter" && places[highlight]) {
+      e.preventDefault();
+      pick(places[highlight]);
+    } else if (e.key === "Escape") {
+      setEditing(false);
+    }
+  };
+
+  const dropdown = editing && places.length > 0 && (
+    <div
+      className={`absolute top-full z-50 mt-1 overflow-hidden rounded-2xl border border-card-border bg-[#0b1428]/95 py-1 shadow-2xl shadow-black/50 backdrop-blur-xl ${
+        variant === "row" ? "inset-x-0" : "left-2 w-96 max-w-[calc(100vw-3rem)]"
+      }`}
+    >
+      {places.map((place, i) => (
+        <button
+          key={place.kind === "city" ? `city-${place.key}` : place.iata}
+          type="button"
+          onMouseEnter={() => setHighlight(i)}
+          onClick={() => pick(place)}
+          className={`flex w-full items-center px-4 py-2.5 text-left ${
+            i === highlight ? "bg-white/8" : ""
+          } ${place.kind !== "city" ? "pl-7" : ""}`}
+        >
+          <PlaceRow place={place} />
+        </button>
+      ))}
+    </div>
+  );
+
+  if (variant === "row") {
+    return (
+      <div className="relative" ref={rootRef}>
+        <button
+          type="button"
+          onClick={() => {
+            setEditing(true);
+            setTimeout(() => inputRef.current?.focus(), 0);
+          }}
+          className={`flex w-full cursor-text items-center gap-3.5 px-4 py-4 text-left ${editing ? "hidden" : ""}`}
+        >
+          <span className="shrink-0 text-slate-300">{rowIcon}</span>
+          <span
+            className={`truncate text-lg font-medium ${value ? "text-white" : "text-muted/70"}`}
+          >
+            {value?.label || placeholder}
+          </span>
+        </button>
+
+        {editing && (
+          <div className="flex items-center gap-3.5 px-4 py-4">
+            <span className="shrink-0 text-slate-300">{rowIcon}</span>
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setHighlight(0);
+              }}
+              onKeyDown={onKeyDown}
+              placeholder={placeholder}
+              aria-label={label}
+              className="w-full bg-transparent text-lg font-medium text-white outline-none placeholder:text-muted/70"
+            />
+          </div>
+        )}
+        {dropdown}
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-w-0 flex-1" ref={rootRef}>
@@ -161,43 +244,13 @@ export default function AirportField({
               setQuery(e.target.value);
               setHighlight(0);
             }}
-            onKeyDown={(e) => {
-              if (e.key === "ArrowDown") {
-                e.preventDefault();
-                setHighlight((h) => Math.min(h + 1, places.length - 1));
-              } else if (e.key === "ArrowUp") {
-                e.preventDefault();
-                setHighlight((h) => Math.max(h - 1, 0));
-              } else if (e.key === "Enter" && places[highlight]) {
-                e.preventDefault();
-                pick(places[highlight]);
-              } else if (e.key === "Escape") {
-                setEditing(false);
-              }
-            }}
+            onKeyDown={onKeyDown}
             placeholder={placeholder}
             className="w-full bg-transparent text-lg font-semibold text-white outline-none placeholder:text-muted/70"
           />
         </div>
       )}
-
-      {editing && places.length > 0 && (
-        <div className="absolute top-full left-2 z-50 mt-1 w-96 overflow-hidden rounded-2xl border border-card-border bg-[#0b1428]/95 py-1 shadow-2xl shadow-black/50 backdrop-blur-xl">
-          {places.map((place, i) => (
-            <button
-              key={place.kind === "city" ? `city-${place.key}` : place.iata}
-              type="button"
-              onMouseEnter={() => setHighlight(i)}
-              onClick={() => pick(place)}
-              className={`flex w-full items-center px-4 py-2.5 text-left ${
-                i === highlight ? "bg-white/8" : ""
-              } ${place.kind !== "city" ? "pl-7" : ""}`}
-            >
-              <PlaceRow place={place} />
-            </button>
-          ))}
-        </div>
-      )}
+      {dropdown}
     </div>
   );
 }

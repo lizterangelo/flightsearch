@@ -1,4 +1,36 @@
 @import "tailwindcss";
+@import "./soar-theme.css";
+
+/*
+ * Display face: TWK Lausanne is a commercially licensed typeface, so its
+ * files are NOT bundled. Drop TWKLausanne-{400,500,600,700}.woff2 into
+ * public/fonts/ (with a license) and these activate; Inter carries the
+ * design until then.
+ */
+@font-face {
+  font-family: "TWK Lausanne";
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/TWKLausanne-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "TWK Lausanne";
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/TWKLausanne-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: "TWK Lausanne";
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/TWKLausanne-600.woff2") format("woff2");
+}
+@font-face {
+  font-family: "TWK Lausanne";
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/TWKLausanne-700.woff2") format("woff2");
+}
 
 :root {
   --background: #050b18;
@@ -24,8 +56,9 @@
   --color-muted: var(--muted);
   --color-direct: var(--direct);
   --color-stop: var(--stop);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
+  --font-display: "TWK Lausanne", var(--font-inter), system-ui, sans-serif;
 }
 
 body {
@@ -52,116 +85,40 @@ body {
   );
 }
 
-/* Starfield: two layers of box-shadow "stars" drifting/twinkling slowly */
-.stars,
-.stars-far {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
+/*
+ * The sky itself (ramp gradients, star layers, rays, grain, moon) lives in
+ * soar-theme.css + the NightSky component. Only app-specific helpers here.
+ */
+
+/* Streamed-in result cards (extracted offerCardIn keyframe). */
+.card-arrive {
+  animation: offerCardIn 0.4s ease both;
 }
 
-.stars::after,
-.stars-far::after {
-  content: "";
-  position: absolute;
-  width: 2px;
-  height: 2px;
-  border-radius: 9999px;
-  background: transparent;
+/* Skeleton pulse over the neutral scale (resolves via data-theme=dark). */
+.skel {
+  background: var(--color-n-100, rgba(255, 255, 255, 0.06));
+  animation: soar-skel-pulse 1.6s ease-in-out infinite;
 }
 
-.stars::after {
-  box-shadow:
-    4vw 12vh 0 0 rgba(255, 255, 255, 0.9),
-    12vw 32vh 0 0 rgba(255, 255, 255, 0.5),
-    22vw 8vh 0 0 rgba(255, 255, 255, 0.7),
-    31vw 42vh 0 0 rgba(255, 255, 255, 0.4),
-    44vw 15vh 0 0 rgba(255, 255, 255, 0.8),
-    52vw 55vh 0 0 rgba(255, 255, 255, 0.35),
-    61vw 25vh 0 0 rgba(255, 255, 255, 0.65),
-    72vw 6vh 0 0 rgba(255, 255, 255, 0.85),
-    81vw 38vh 0 0 rgba(255, 255, 255, 0.45),
-    92vw 18vh 0 0 rgba(255, 255, 255, 0.75),
-    96vw 62vh 0 0 rgba(255, 255, 255, 0.3),
-    8vw 68vh 0 0 rgba(255, 255, 255, 0.4),
-    37vw 74vh 0 0 rgba(255, 255, 255, 0.3),
-    67vw 80vh 0 0 rgba(255, 255, 255, 0.35),
-    87vw 88vh 0 0 rgba(255, 255, 255, 0.4);
-  animation: twinkle 5s ease-in-out infinite alternate;
+/* Top loading bar (their gradient recipe; colors from the blue scale). */
+:root {
+  --color-loading-bar-1: #7fa4ff;
+  --color-loading-bar-2: #8aa5ff;
+  --color-loading-bar-3: #a882ff;
+  --color-loading-bar-4: #7c56f0;
+  --color-loading-bar-5: #60a2ff;
+  --color-loading-bar-streak: #ffffff;
+  --color-loading-bar-streak-soft: #ffffffb8;
+  --color-loading-bar-glow: #7fa4ff99;
 }
-
-.stars-far::after {
-  width: 1px;
-  height: 1px;
-  box-shadow:
-    7vw 22vh 0 0 rgba(255, 255, 255, 0.4),
-    17vw 5vh 0 0 rgba(255, 255, 255, 0.3),
-    27vw 58vh 0 0 rgba(255, 255, 255, 0.25),
-    35vw 28vh 0 0 rgba(255, 255, 255, 0.35),
-    49vw 44vh 0 0 rgba(255, 255, 255, 0.2),
-    57vw 12vh 0 0 rgba(255, 255, 255, 0.4),
-    69vw 52vh 0 0 rgba(255, 255, 255, 0.3),
-    77vw 30vh 0 0 rgba(255, 255, 255, 0.25),
-    89vw 48vh 0 0 rgba(255, 255, 255, 0.35),
-    95vw 8vh 0 0 rgba(255, 255, 255, 0.3),
-    14vw 84vh 0 0 rgba(255, 255, 255, 0.2),
-    47vw 90vh 0 0 rgba(255, 255, 255, 0.25),
-    83vw 72vh 0 0 rgba(255, 255, 255, 0.2);
-  animation: twinkle 7s ease-in-out infinite alternate-reverse;
-}
-
-@keyframes twinkle {
+@keyframes loading-bar-slide {
   from {
-    opacity: 1;
+    background-position-x: 200%;
   }
   to {
-    opacity: 0.45;
+    background-position-x: 0%;
   }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .stars::after,
-  .stars-far::after {
-    animation: none;
-  }
-}
-
-/* Soft cloud band along the bottom of the viewport */
-.clouds {
-  position: fixed;
-  inset-inline: 0;
-  bottom: 0;
-  height: 45vh;
-  pointer-events: none;
-  z-index: 0;
-  background:
-    radial-gradient(60% 55% at 18% 100%, rgba(148, 163, 184, 0.16) 0%, transparent 70%),
-    radial-gradient(50% 60% at 52% 108%, rgba(148, 163, 184, 0.22) 0%, transparent 72%),
-    radial-gradient(55% 50% at 85% 102%, rgba(148, 163, 184, 0.14) 0%, transparent 70%),
-    radial-gradient(90% 40% at 50% 115%, rgba(203, 213, 225, 0.1) 0%, transparent 75%);
-  filter: blur(6px);
-}
-
-/* Highlight flash for freshly-inserted result cards */
-@keyframes card-arrive {
-  0% {
-    opacity: 0;
-    transform: translateY(6px);
-    box-shadow: 0 0 0 1px rgba(46, 107, 255, 0.55);
-  }
-  60% {
-    box-shadow: 0 0 0 1px rgba(46, 107, 255, 0.35);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-    box-shadow: 0 0 0 0 transparent;
-  }
-}
-
-.card-arrive {
-  animation: card-arrive 0.5s ease-out;
 }
 
 /* Skeleton shimmer */

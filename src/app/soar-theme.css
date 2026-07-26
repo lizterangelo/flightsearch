@@ -1,0 +1,227 @@
+/*
+ * soar-theme.css — design parameters extracted from flysoar.ai for this
+ * private local study clone: design tokens, every keyframe, the morphing
+ * sky system, logo lockup, app loader, and hover transitions.
+ * Regenerate via the scratchpad extract/assemble scripts.
+ */
+
+/* ============================== tokens ============================== */
+:root[data-theme=light] .rg-scene{--rg-rose:#d23b56}
+.soar-ds *,.soar-ds :before,.soar-ds :after{border-color:var(--color-border)}
+:root[data-theme=dark]{--color-blue-50:#7fa4ff24;--color-blue-100:#7fa4ff38;--color-blue-200:#7fa4ff5c;--color-blue-300:#7fa4ff80;--color-blue-400:#a3b3f8;--color-blue-500:#8aa5ff;--color-blue-600:#7fa4ff;--color-blue-700:#c7d2fb;--color-blue-800:#dbe4ff;--color-blue-900:#eef2ff;--color-n-0:#08080c;--color-n-50:#0d1016;--color-n-100:#141821;--color-n-150:#1f2530;--color-n-200:#2b3340;--color-n-300:#374151;--color-n-400:#4b5563;--color-n-500:#9aa1ab;--color-n-600:#cad0d8;--color-n-700:#dfe3e8;--color-n-800:#eef1f4;--color-n-900:#f6f8fa;--color-n-950:#fff;--color-fg:#fff;--color-fg-secondary:#ffffffb8;--color-fg-tertiary:#ffffff75;--color-border:#ffffff1f;--color-border-strong:#ffffff3d;--color-accent:#7fa4ff;--color-accent-hover:#a3b3f8;--color-control-inverted-bg:#141821;--color-control-inverted-hover:#1f2530;--color-control-inverted-fg:#fff;--color-success-fg:#78e6a0;--color-success-bg:#78e6a021;--color-warning-fg:#ffb066;--color-warning-bg:#ffb06624;--color-danger-fg:#ff8aa0;--color-danger-bg:#ff8aa024;--color-logout:#ff6b8a;--color-logout-bg:#ff6b8a24;--color-pj-btn:#fff;--color-friend-remove-confirm:#ff6b8a;--color-arc-ink:#eef1f4;--shadow-xs:0 1px 2px #00000059;--shadow-sm:0 0 0 1px #ffffff0d,0 1px 2px #0000005c;--shadow-md:0 4px 10px -3px #0000008c,0 2px 4px -2px #00000073;--shadow-lg:0 16px 30px -12px #000000a6,0 6px 12px -8px #0000008c;--shadow-lift:0 0 1px #ffffff2e,inset 0 0 2px #ffffff0a}
+.soar-ds{--grad-accent:linear-gradient(180deg, #1a2f9e 0%, #2f68ff 100%);--grad-accent-hover:linear-gradient(180deg, #2440c0 9%, #3f77ff 100%);font-family:var(--font-sans);color:var(--color-fg);-webkit-font-smoothing:antialiased;letter-spacing:-.006em}
+.soar-ds ::selection{background:var(--color-blue-100);color:var(--color-blue-900)}
+:root[data-theme=dark] .sky-ramp-morph{background: radial-gradient(55% 95% at -8% var(--sky-wall-y), #56565a80 0%, #30303447 34%, #30303400 62%), radial-gradient(55% 95% at 108% var(--sky-wall-y), #56565a80 0%, #30303447 34%, #30303400 62%),  radial-gradient(78% 120% at 50% var(--sky-dome-y), rgba(5, 5, 7, var(--sky-dome-alpha)) 0%, #0505078c 30%, #05050700 52%),  radial-gradient(135% 62% at 50% var(--sky-lift-y), #2e2e30 0%, #262628 30%, #1b1b1d 54%, #1b1b1d80 70%, #1b1b1d00 84%),  linear-gradient(180deg, #020204 0%, #020204 100%)}
+:root{--w-015:#ffffff04;--w-02:#ffffff05;--w-025:#ffffff06;--w-03:#ffffff08;--w-04:#ffffff0a;--w-045:#ffffff0b;--w-05:#ffffff0d;--w-055:#ffffff0e;--w-06:#ffffff0f;--w-07:#ffffff12;--w-08:#ffffff14;--w-09:#ffffff17;--w-1:#ffffff1a;--w-11:#ffffff1c;--w-12:#ffffff1f;--w-13:#ffffff21;--w-14:#ffffff24;--w-15:#ffffff26;--w-16:#ffffff29;--w-18:#ffffff2e;--w-2:#fff3;--w-22:#ffffff38;--w-24:#ffffff3d;--w-25:#ffffff40;--w-28:#ffffff47;--w-3:#ffffff4d;--w-32:#ffffff52;--w-34:#ffffff57;--w-35:#ffffff59;--w-36:#ffffff5c;--w-38:#ffffff61;--w-4:#fff6;--w-42:#ffffff6b;--w-45:#ffffff73;--w-46:#ffffff75;--w-5:#ffffff80;--w-55:#ffffff8c;--w-56:#ffffff8f;--w-58:#ffffff94;--w-6:#fff9;--w-62:#ffffff9e;--w-65:#ffffffa6;--w-66:#ffffffa8;--w-7:#ffffffb3;--w-72:#ffffffb8;--w-75:#ffffffbf;--w-78:#ffffffc7;--w-8:#fffc;--w-82:#ffffffd1;--w-85:#ffffffd9;--w-86:#ffffffdb;--w-88:#ffffffe0;--w-9:#ffffffe6;--w-92:#ffffffeb;--surface-0:#000;--surface-1:#08080c;--surface-2:#0a0a0e;--surface-3:#0d0d0d;--surface-3b:#0d0d12;--glass-1:#08080cf2;--glass-2:#0a0a0edb;--glass-3:#14141ae6;--text-1:#fff;--surface-inverse:#fff;--border-strong:#fff;--ink-inverse:#000;--b-0:#0000;--b-4:#0006;--b-55:#0000008c;--b-6:#0009;--b-62:#0000009e;--b-65:#000000a6;--b-66:#000000a8;--b-72:#000000b8;--b-75:#000000bf;--b-88:#000000e0;--vignette-edge:#0000008c;--flight-line-rgb:255, 255, 255;--ink-rgb:255, 255, 255;--modal-surface:#0a0a0a;--modal-surface-2:#0e0e0e;--modal-fg:#fff;--accent-strong:var(--color-blue-600);--accent-strong-rgb:44, 79, 240;--topbar-scrim:#000000b3;--topbar-results-scrim:#000000c7;--logo-invert:brightness(0) invert(1);--metallic-lo:#ebf0f5eb}
+:root[data-theme=light]{--w-015:#00000004;--w-02:#00000005;--w-025:#00000006;--w-03:#00000008;--w-04:#0000000a;--w-045:#0000000b;--w-05:#0000000d;--w-055:#0000000e;--w-06:#0000000f;--w-07:#00000012;--w-08:#00000014;--w-09:#00000017;--w-1:#0000001a;--w-11:#0000001c;--w-12:#0000001f;--w-13:#00000021;--w-14:#00000024;--w-15:#00000026;--w-16:#00000029;--w-18:#0000002e;--w-2:#0003;--w-22:#00000038;--w-24:#0000003d;--w-25:#00000040;--w-28:#00000047;--w-3:#0000004d;--w-32:#00000052;--w-34:#00000057;--w-35:#00000059;--w-36:#0000005c;--w-38:#00000061;--w-4:#0006;--w-42:#0000006b;--w-45:#00000073;--w-46:#00000075;--w-5:#00000080;--w-55:#0000008c;--w-56:#0000008f;--w-58:#00000094;--w-6:#0009;--w-62:#0000009e;--w-65:#000000a6;--w-66:#000000a8;--w-7:#000000b3;--w-72:#000000b8;--w-75:#000000bf;--w-78:#000000c7;--w-8:#000c;--w-82:#000000d1;--w-85:#000000d9;--w-86:#000000db;--w-88:#000000e0;--w-9:#000000e6;--w-92:#000000eb;--surface-0:#eaecef;--surface-1:#fff;--surface-2:#fff;--surface-3:#f4f5f7;--surface-3b:#f2f3f6;--glass-1:#fffffff2;--glass-2:#ffffffdb;--glass-3:#ffffffe6;--text-1:#0c0d10;--surface-inverse:#fff;--border-strong:#0c0d10d9;--ink-inverse:#000;--b-0:#0000;--b-4:#fff9;--b-55:#ffffffbf;--b-6:#fffc;--b-62:#ffffffd1;--b-65:#ffffffd9;--b-66:#ffffffdb;--b-72:#ffffffeb;--b-75:#ffffffeb;--b-88:#ffffffeb;--vignette-edge:#46376414;--flight-line-rgb:17, 24, 32;--ink-rgb:0, 0, 0;--modal-surface:#fff;--modal-surface-2:#f3f4f7;--modal-fg:#0c0d10;--accent-strong:#2c4ff0;--accent-strong-rgb:44, 79, 240;--topbar-scrim:#ffffffb8;--topbar-results-scrim:#ffffffd9;--logo-invert:brightness(0);--metallic-lo:#00000080}
+:root{--soar-safari-chrome-top-bleed:0px;--soar-safari-chrome-bottom-bleed:0px}
+:root[data-theme=dark] .sl-phrase{color:var(--color-fg)}
+
+/* ============================ keyframes ============================= */
+@keyframes rgDashMarch{to{stroke-dashoffset:-7px}}
+@keyframes rgPlaneFly{0%{offset-distance:0%;opacity:0}12%{opacity:1}88%{opacity:1}to{offset-distance:100%;opacity:0}}
+@keyframes supportBubbleIn{0%{opacity:0;transform:translateY(14px)scale(.86)}to{opacity:1;transform:translateY(0)scale(1)}}
+@keyframes supportChatDot{0%,to{opacity:.35;transform:translateY(0)}50%{opacity:1;transform:translateY(-3px)}}
+@keyframes flightPaginationCardIn{0%{opacity:0;transform:translateY(18px)scale(.985)}58%{opacity:1}to{opacity:1;transform:translate(0)scale(1)}}
+@keyframes offerCardIn{0%{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translate(0)}}
+@keyframes streamMoreFadeIn{0%{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+@keyframes offersDateShiftIn{0%{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes ping{75%,to{opacity:0;transform:scale(2)}}
+@keyframes pulse{50%{opacity:.5}}
+@keyframes soar-spin{to{transform:rotate(360deg)}}
+@keyframes soar-shimmer{0%{background-position:200% 0}to{background-position:-200% 0}}
+@keyframes soar-fade-in{0%{opacity:0;filter:blur(6px)}to{opacity:1;filter:blur()}}
+@keyframes soar-cloud-drift{0%,to{transform:translateY(0)scale(1)}50%{transform:translateY(-8px)scale(1.02)}}
+@keyframes soar-dialog-in{0%{opacity:0;transform:scale(.95)}to{opacity:1;transform:none}}
+@keyframes soar-backdrop-in{0%{opacity:0}to{opacity:1}}
+@keyframes soar-calendar-backdrop-in{0%{opacity:0}to{opacity:1}}
+@keyframes soar-calendar-backdrop-out{0%{opacity:1}to{opacity:0}}
+@keyframes soar-calendar-panel-in{0%{opacity:0;transform:translateY(10px)scale(.985)}to{opacity:1;transform:translate(0,0)scale(1)}}
+@keyframes soar-calendar-panel-out{0%{opacity:1;transform:translate(0,0)scale(1)}to{opacity:0;transform:translateY(6px)scale(.99)}}
+@keyframes productNavUnderlineIn{0%{opacity:0;transform:scaleX(.5)}to{opacity:1;transform:scaleX(1)}}
+@keyframes productSearchIn{0%{opacity:0;filter:blur(5px);transform:translateY(9px)scale(.985)}to{opacity:1;filter:blur();transform:translate(0,0)scale(1)}}
+@keyframes productSearchInFromRight{0%{opacity:0;transform:translate(18px)}to{opacity:1;transform:translate(0,0)}}
+@keyframes productSearchInFromLeft{0%{opacity:0;transform:translate(-18px)}to{opacity:1;transform:translate(0,0)}}
+@keyframes productSlideFromRight{0%{transform:translate(18px)}to{transform:translate(0,0)}}
+@keyframes productSlideFromLeft{0%{transform:translate(-18px)}to{transform:translate(0,0)}}
+@keyframes productSearchActionsIn{0%{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translate(0,0)}}
+@keyframes soar-shake{0%,to{transform:translate(0)}25%{transform:translate(-3px)}75%{transform:translate(3px)}}
+@keyframes soar-share-glyph-pop{0%{opacity:0;transform:scale(.62)}to{opacity:1;transform:scale(1)}}
+@keyframes soar-page-fade{0%{opacity:0}to{opacity:1}}
+@keyframes soar-page-sink{to{opacity:0;transform:translateY(6px)scale(.985)}}
+@keyframes soar-skel-pulse{0%,to{background:var(--color-n-50)}50%{background:var(--color-n-100)}}
+@keyframes soar-cursor-roam{0%{top:16%;left:14%;transform:scale(1)}12%{top:24%;left:60%;transform:scale(1)}15%{top:24%;left:60%;transform:scale(.8)}18%{top:24%;left:60%;transform:scale(1)}34%{top:55%;left:28%;transform:scale(1)}37%{top:55%;left:28%;transform:scale(.8)}40%{top:55%;left:28%;transform:scale(1)}58%{top:60%;left:70%;transform:scale(1)}61%{top:60%;left:70%;transform:scale(.8)}64%{top:60%;left:70%;transform:scale(1)}82%{top:32%;left:44%;transform:scale(1)}to{top:16%;left:14%;transform:scale(1)}}
+@keyframes valueSwapIn{0%{opacity:0;filter:blur(1.5px);transform:translateY(5px)}to{opacity:1;filter:blur();transform:translateY(0)}}
+@keyframes heroGreetingBlurOut{0%{opacity:1;filter:blur();transform:translateY(0)}to{opacity:0;filter:blur(12px);transform:translateY(-9px)}}
+@keyframes heroGreetingBlurIn{0%{opacity:0;filter:blur(3px);transform:translateY(8px)}to{opacity:1;filter:blur();transform:translateY(0)}}
+@keyframes fdBarBlurUp{0%{opacity:0;filter:blur(12px);transform:translateY(18px)}to{opacity:1;filter:blur();transform:translateY(0)}}
+@keyframes airportPickPulse{0%{transform:scale(1)}35%{transform:scale(1.012)}to{transform:scale(1)}}
+@keyframes multiCityHeroIn{0%{opacity:.4;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes dashboardResultsRise{0%{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes staysCompactSearchIn{0%{opacity:0;filter:blur(3px);transform:scale(.985)}to{opacity:1;filter:blur();transform:scale(1)}}
+@keyframes staysResultsMetaIn{0%{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes staysResultsContentIn{0%{opacity:0;transform:scale(.992)}to{opacity:1;transform:none}}
+@keyframes staysResultsSectionIn{0%{opacity:0;filter:blur(3px);transform:translateY(14px)scale(.995)}to{opacity:1;filter:blur();transform:none}}
+@keyframes stayPaginationCardIn{0%{opacity:0;transform:translateY(18px)scale(.985)}58%{opacity:1}to{opacity:1;transform:translate(0,0)scale(1)}}
+@keyframes staysHeroAutoplayProgress{0%{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes sl-phrase-shimmer{0%{background-position:180% 0}to{background-position:-80% 0}}
+@keyframes sl-copy-swap{0%{opacity:0;filter:blur(3px);transform:translateY(4px)}to{opacity:1;filter:blur();transform:translateY(0)}}
+@keyframes ifpFriendIn{0%{opacity:0;filter:blur(2px);transform:translate(-6px)scale(.92)}to{opacity:1;filter:none;transform:none}}
+@keyframes ufPulse{0%,to{opacity:1}50%{opacity:.35}}
+@keyframes ufCardIn{0%{opacity:0;transform:translateY(10px)scale(.96)}to{opacity:1;transform:translateY(0)scale(1)}}
+@keyframes ufCardFade{0%{opacity:0}to{opacity:1}}
+@keyframes fadeIn{0%{opacity:0}to{opacity:1}}
+@keyframes popIn{0%{opacity:0;transform:scale(.96)translateY(20px)}to{opacity:1;transform:none}}
+@keyframes bkCardIn{0%{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes airportImmersiveFadeIn{0%{opacity:0}to{opacity:1}}
+@keyframes airportImmersiveFadeOut{0%{opacity:1}to{opacity:0}}
+@keyframes airportImmersiveFieldIn{0%{opacity:0;transform:translateY(18px)scale(.98)}to{opacity:1;transform:translateY(0)scale(1)}}
+@keyframes airportImmersiveFieldOut{0%{opacity:1;transform:translateY(0)scale(1)}to{opacity:0;transform:translateY(8px)scale(.985)}}
+@keyframes tfClose{to{opacity:0}}
+@keyframes bookConfirmFadeOut{0%{opacity:1}to{opacity:0}}
+@keyframes bookConfirmPop{0%{opacity:0;transform:scale(.985)}to{opacity:1;transform:none}}
+@keyframes bookingModalBackdropIn{0%{opacity:0}to{opacity:1}}
+@keyframes bookingModalBackdropOut{0%{opacity:1}to{opacity:0}}
+@keyframes bookingModalPanelIn{0%{opacity:0;transform:translateY(10px)scale(.98)}to{opacity:1;transform:translate(0,0)scale(1)}}
+@keyframes bookingModalPanelOut{0%{opacity:1;transform:translate(0,0)scale(1)}to{opacity:0;transform:translateY(6px)scale(.985)}}
+@keyframes bookConfirmPageIn{0%{opacity:0;filter:blur(12px);transform:scale(1.015)}to{opacity:1;filter:blur();transform:none}}
+@keyframes bookConfirmPageOut{0%{opacity:1;filter:blur()}to{opacity:0;filter:blur(8px)}}
+@keyframes bcSubviewIn{0%{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes bcDotPulse{0%,to{opacity:.45;transform:scale(.85)}50%{opacity:1;transform:scale(1.15)}}
+@keyframes bcCancelFadeIn{0%{opacity:0}to{opacity:.85}}
+@keyframes bcCheckPop{0%{opacity:0;transform:scale(.4)}60%{opacity:1;transform:scale(1.1)}to{opacity:1;transform:scale(1)}}
+@keyframes bcCheckDraw{to{stroke-dashoffset:0}}
+@keyframes bcRise{0%{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes payMenuIn{0%{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@keyframes payModalIn{0%{opacity:0;filter:blur(2px);transform:translateY(8px)scale(.96)}60%{opacity:1;filter:blur()}to{opacity:1;filter:blur();transform:none}}
+@keyframes payFieldReveal{0%{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@keyframes walletPaySpin{to{transform:rotate(360deg)}}
+@keyframes fhDashMarch{to{stroke-dashoffset:-7px}}
+@keyframes fhFly{0%{offset-distance:0%;opacity:0}12%{opacity:1}88%{opacity:1}to{offset-distance:100%;opacity:0}}
+@keyframes logo-plane-loop{0%{opacity:1;animation-timing-function:cubic-bezier(.45,0,.75,.35);transform:translate(0,0)rotate(0)}50%{opacity:1;transform:translate(190px,-86px)rotate(-16deg)}51%{opacity:0;transform:translate(-72px,30px)rotate(-16deg)}52%{opacity:1;animation-timing-function:cubic-bezier(.04,.88,.16,1);transform:translate(-72px,30px)rotate(-16deg)}to{opacity:1;transform:translate(0,0)rotate(0)}}
+
+/* ============================ sky system ============================ */
+@property --sky-tint-strong{syntax:"<color>";inherits:false;initial-value:#6076ef}
+@property --sky-tint-mid{syntax:"<color>";inherits:false;initial-value:#788ff6}
+@property --sky-tint-band{syntax:"<color>";inherits:false;initial-value:#c7d2fb}
+@property --sky-tint-wash{syntax:"<color>";inherits:false;initial-value:#eef1fe}
+@property --sky-mask-mid-alpha{syntax:"<number>";inherits:false;initial-value:.55}
+@property --sky-mask-floor-alpha{syntax:"<number>";inherits:false;initial-value:0}
+@property --sky-dome-y{syntax:"<percentage>";inherits:false;initial-value:128%}
+@property --sky-dome-alpha{syntax:"<number>";inherits:false;initial-value:.92}
+@property --sky-wall-y{syntax:"<percentage>";inherits:false;initial-value:92%}
+@property --sky-lift-y{syntax:"<percentage>";inherits:false;initial-value:120%}
+.sky-unit-product-mask{--sky-mask-mid-alpha:.55;--sky-mask-floor-alpha:0;transition:--sky-mask-mid-alpha .72s cubic-bezier(.22,1,.36,1),--sky-mask-floor-alpha .72s cubic-bezier(.22,1,.36,1)}
+.sky-unit-product-mask[data-stays=true]{--sky-mask-mid-alpha:1;--sky-mask-floor-alpha:1}
+.sky-ramp-morph{z-index:1;--sky-dome-y:128%;--sky-dome-alpha:.84;--sky-wall-y:92%;--sky-lift-y:106%;background: radial-gradient(55% 95% at -8% var(--sky-wall-y), color-mix(in srgb, var(--sky-tint-strong) 72%, transparent) 0%, color-mix(in srgb, var(--sky-tint-mid) 35%, transparent) 34%, color-mix(in srgb, var(--sky-tint-mid) 0%, transparent) 62%),  radial-gradient(55% 95% at 108% var(--sky-wall-y), color-mix(in srgb, var(--sky-tint-strong) 72%, transparent) 0%, color-mix(in srgb, var(--sky-tint-mid) 35%, transparent) 34%, color-mix(in srgb, var(--sky-tint-mid) 0%, transparent) 62%),  radial-gradient(78% 120% at 50% var(--sky-dome-y), rgba(255, 255, 255, var(--sky-dome-alpha)) 0%, #ffffff8c 30%, #fff0 52%),  radial-gradient(220% 150% at 50% var(--sky-lift-y), var(--sky-tint-strong) 0%, var(--sky-tint-mid) 16%, var(--sky-tint-band) 30%, var(--sky-tint-wash) 42%, #fff0 54%),  linear-gradient(180deg, var(--color-n-0) 0%, var(--color-n-0) 100%);transition:--sky-dome-y 1.25s cubic-bezier(.4,.02,.2,1),--sky-dome-alpha 1.25s cubic-bezier(.4,.02,.2,1),--sky-wall-y 1.25s cubic-bezier(.4,.02,.2,1),--sky-lift-y 1.25s cubic-bezier(.4,.02,.2,1),--sky-tint-strong .85s,--sky-tint-mid .85s,--sky-tint-band .85s,--sky-tint-wash .85s;position:absolute;inset:0}
+.sky-ramp-morph[data-palette=stays]{--sky-tint-strong:#6076ef;--sky-tint-mid:#788ff6;--sky-tint-band:#c7d2fb;--sky-tint-wash:#eef1fe}
+.sky-ramp-morph[data-receded=true]{--sky-dome-y:-30%;--sky-dome-alpha:.96;--sky-wall-y:2%;--sky-lift-y:-22%}
+.sky-ramp-morph[data-palette=stays][data-receded=true]{--sky-tint-strong:#6076ef;--sky-tint-mid:#788ff6;--sky-tint-band:#c7d2fb;--sky-tint-wash:#eef1fe}
+
+.sky-unit{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.sky-unit-mask{position:absolute;inset:0;will-change:transform;-webkit-mask-image:linear-gradient(180deg,#000 0%,#000 74%,rgba(0,0,0,var(--sky-mask-mid-alpha,.55)) 88%,rgba(0,0,0,var(--sky-mask-floor-alpha,0)) 100%);mask-image:linear-gradient(180deg,#000 0%,#000 74%,rgba(0,0,0,var(--sky-mask-mid-alpha,.55)) 88%,rgba(0,0,0,var(--sky-mask-floor-alpha,0)) 100%)}
+.sky-rays{position:absolute;left:50%;bottom:-14%;width:200vw;height:118vh;z-index:2;mix-blend-mode:screen;background:repeating-conic-gradient(from 150deg at 50% 100%,rgba(255,255,255,0) 0deg,rgba(255,255,255,.09) 3deg,rgba(255,255,255,0) 11deg),repeating-conic-gradient(from 156deg at 50% 100%,rgba(255,255,255,0) 0deg,rgba(255,255,255,.055) 1.4deg,rgba(255,255,255,0) 6.5deg);-webkit-mask-image:radial-gradient(80% 95% at 50% 100%,#000 0%,rgba(0,0,0,.55) 45%,transparent 78%);mask-image:radial-gradient(80% 95% at 50% 100%,#000 0%,rgba(0,0,0,.55) 45%,transparent 78%);pointer-events:none;transform:translateX(-50%)}
+.sky-grain{position:absolute;inset:0;z-index:3;pointer-events:none;opacity:.5;mix-blend-mode:soft-light;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");background-size:160px 160px}
+.sky-star-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
+.sky-moon{position:absolute;z-index:2;border-radius:999px;background:transparent;opacity:.82;box-shadow:rgba(226,226,232,.88) -4.48px 0 0 0,rgba(255,255,255,.11) -5.88px 0 18px 0,rgba(255,255,255,.07) -9.8px 0 54px 0}
+
+/* ============================== logo ================================ */
+.animate-\[logo-plane-loop_0\.64s_linear_both\]{animation:.64s linear both logo-plane-loop}
+.text-logout{color:var(--color-logout)}
+.\[filter\:var\(--logo-invert\)\]{filter:var(--logo-invert)}
+.\[\&_\.airline-logo-sep\]\:text-\[19px\] .airline-logo-sep{font-size:19px}
+.soar-ds .sob-price-soar-logo{filter:brightness(0)}
+:root[data-theme=dark] .soar-ds .sob-price-soar-logo{filter:brightness(0)invert()}
+
+/* ============================ app loader ============================ */
+#app-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  transition: opacity 0.12s ease;
+}
+#app-loader.hidden,
+:root[data-app-ready] #app-loader { opacity: 0; pointer-events: none; }
+:root[data-app-loader-removed] #app-loader { display: none; }
+#app-loader .app-loader-logo {
+  position: relative;
+  display: inline-flex;
+  line-height: 0;
+}
+#app-loader .app-loader-logo img {
+  width: 95px;
+  height: auto;
+  filter: brightness(0) invert(1);
+  opacity: 0.95;
+  display: block;
+}
+:root[data-theme="light"] #app-loader {
+  background: #fff;
+}
+:root[data-theme="light"] #app-loader .app-loader-logo img {
+  filter: brightness(0);
+}
+
+/* --- holographic shimmer sweep — a chrome / oil-slick band glides slowly
+   across the white/black logo, which keeps its base color in between
+   (revert: delete this block + the <span className="app-loader-shimmer" />
+   in the markup below) --- */
+#app-loader .app-loader-shimmer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-mask: url(/logo.svg) center / contain no-repeat;
+  mask: url(/logo.svg) center / contain no-repeat;
+}
+/* the travelling holographic band (narrower than the logo, so the
+   white/black base always shows on either side); its hues drift while it
+   crosses so the colour itself shimmers */
+#app-loader .app-loader-shimmer::before {
+  content: "";
+  position: absolute;
+  inset: -70% -110%;
+  background: linear-gradient(
+    107deg,
+    transparent 38%,
+    rgba(56, 120, 255, 0.96) 42.5%,
+    rgba(96, 162, 255, 0.97) 46%,
+    rgba(255, 255, 255, 1) 50%,
+    rgba(168, 130, 255, 0.97) 54%,
+    rgba(124, 86, 240, 0.96) 57.5%,
+    transparent 62%
+  );
+  transform: translateX(-90%);
+  animation:
+    app-loader-holo-sweep 5s ease-in-out infinite,
+    app-loader-holo-hue 5s ease-in-out infinite;
+  will-change: transform, filter;
+}
+@keyframes app-loader-holo-sweep {
+  0% { transform: translateX(-90%); }
+  86% { transform: translateX(90%); }
+  100% { transform: translateX(90%); }
+}
+@keyframes app-loader-holo-hue {
+  0%, 100% { filter: hue-rotate(-9deg); }
+  50% { filter: hue-rotate(9deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #app-loader .app-loader-shimmer::before { display: none; }
+}
+
+/* ============================= hovers =============================== */
+.group-has-\[\.is-disabled\:hover\]\/people\:opacity-100:is(:where(.group\/people):has(.is-disabled:hover) *){opacity:1}
+.\[\&_button\:hover\]\:text-fg\! button:hover{color:var(--color-fg)!important}
+.\[\&\:has\(\.offer\.top-pick\)\:hover\]\:border-blue-300:has(.offer.top-pick):hover{border-color:var(--color-blue-300)}
+.\[\&\:hover\]\:bg-n-50\!:hover{background-color:var(--color-n-50)!important}
+.\[\&\:hover\]\:bg-n-100\!:hover{background-color:var(--color-n-100)!important}
+::-webkit-scrollbar-thumb:hover{background-color:#ffffff38}
+.ReferralQrCode-module__DnJZIq__actions button:hover:not(:disabled){background:var(--color-n-50,#f6f7f9)}
+.ReferralQrCode-module__DnJZIq__admin .ReferralQrCode-module__DnJZIq__actions button:hover:not(:disabled){background:var(--admin-card-hover,#ffffff17)}

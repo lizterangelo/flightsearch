@@ -275,10 +275,10 @@ export default function DatePickerModal({
   return (
     <div className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto p-4 pt-[8vh]">
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+        className="fixed inset-0 animate-[soar-calendar-backdrop-in_.28s_ease_both] bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div role="dialog" aria-modal="true" aria-label="Choose dates" className="relative w-full max-w-3xl rounded-3xl border border-card-border bg-[#0a1122] p-7 shadow-2xl shadow-black/60">
+      <div role="dialog" aria-modal="true" aria-label="Choose dates" className="relative w-full max-w-3xl animate-[soar-calendar-panel-in_.32s_cubic-bezier(.22,1,.36,1)_both] rounded-3xl border border-card-border bg-[#0a1122] p-7 shadow-2xl shadow-black/60">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div className="text-2xl font-bold text-white">{header}</div>
           <div className="flex rounded-full border border-card-border bg-pill/80 p-1 text-sm font-medium">

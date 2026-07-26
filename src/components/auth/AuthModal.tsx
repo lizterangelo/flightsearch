@@ -159,10 +159,10 @@ export default function AuthModal({
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center overflow-y-auto p-4">
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+        className="fixed inset-0 animate-[soar-backdrop-in_.24s_ease_both] bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div role="dialog" aria-modal="true" aria-label="Sign in" className="relative w-full max-w-md overflow-hidden rounded-3xl border border-card-border bg-[#0a1122] shadow-2xl shadow-black/60">
+      <div role="dialog" aria-modal="true" aria-label="Sign in" className="relative w-full max-w-md animate-[soar-dialog-in_.26s_cubic-bezier(.22,1,.36,1)_both] overflow-hidden rounded-3xl border border-card-border bg-[#0a1122] shadow-2xl shadow-black/60">
         <button
           type="button"
           onClick={onClose}
@@ -203,11 +203,12 @@ export default function AuthModal({
               <ProviderButton
                 label="Continue with Messages"
                 icon={
-                  <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-500 text-white">
-                    <svg viewBox="0 0 20 20" fill="currentColor" className="size-4.5">
-                      <path d="M10 3C5.6 3 2 5.9 2 9.5c0 2 1.1 3.8 2.9 5-.2.8-.7 1.9-1.5 2.6 1.6-.1 3-.7 3.9-1.3.9.2 1.8.4 2.7.4 4.4 0 8-2.9 8-6.5S14.4 3 10 3z" />
-                    </svg>
-                  </span>
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src="/imessage-logo.png"
+                    alt=""
+                    className="size-7 rounded-lg object-contain"
+                  />
                 }
                 onClick={() => setStep("identifier")}
               />
@@ -314,7 +315,7 @@ export default function AuthModal({
           )}
 
           {error && (
-            <div className="mt-4 text-sm text-rose-300">{error}</div>
+            <div key={error} className="mt-4 animate-[soar-shake_.3s_ease_both] text-sm text-rose-300">{error}</div>
           )}
 
           <div className="mt-6 text-center text-xs text-muted">

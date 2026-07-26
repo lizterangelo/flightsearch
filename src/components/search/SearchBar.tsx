@@ -166,10 +166,127 @@ export default function SearchBar({
 
   const divider = <div className="h-10 w-px shrink-0 bg-white/10" />;
 
+  const fromIcon = (
+    <svg viewBox="0 0 20 20" fill="none" className="size-5">
+      <circle cx="10" cy="10" r="6.5" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+  const toIcon = (
+    <svg viewBox="0 0 20 20" fill="none" className="size-5">
+      <path
+        d="M10 17.5s5.5-4.8 5.5-9A5.5 5.5 0 0010 3a5.5 5.5 0 00-5.5 5.5c0 4.2 5.5 9 5.5 9z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+      <circle cx="10" cy="8.5" r="1.9" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+
   return (
     <div className={compact ? "w-full" : "w-full max-w-5xl"}>
+      {/* Mobile: the stacked search card (their under-640px layout). */}
+      {!compact && (
+        <div className="relative z-20 animate-[productSearchIn_.55s_cubic-bezier(.22,1,.36,1)_both] sm:hidden">
+          <div className="relative rounded-3xl border border-card-border bg-pill/90 shadow-xl shadow-black/30 backdrop-blur-md">
+            <AirportField
+              label="From"
+              variant="row"
+              rowIcon={fromIcon}
+              value={origin}
+              onChange={setOrigin}
+              placeholder="City or airport"
+            />
+            <div className="mx-4 h-px bg-white/8" />
+            <AirportField
+              label="To"
+              variant="row"
+              rowIcon={toIcon}
+              value={destination}
+              onChange={(sel) => {
+                setDestination(sel);
+                setDateModalOpen(true);
+              }}
+              placeholder="City or airport"
+            />
+            <button
+              type="button"
+              onClick={swap}
+              aria-label="Swap origin and destination"
+              className="absolute top-[52px] right-4 flex size-11 cursor-pointer items-center justify-center rounded-full border border-card-border bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white"
+            >
+              <svg viewBox="0 0 20 20" fill="none" className="size-4 rotate-90">
+                <path
+                  d="M4 6.5h11m0 0l-3-3m3 3l-3 3M16 13.5H5m0 0l3-3m-3 3l3 3"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+            <div className="mx-4 h-px bg-white/8" />
+            <button
+              type="button"
+              onClick={() => setDateModalOpen(true)}
+              className="flex w-full cursor-pointer items-center gap-3.5 px-4 py-4 text-left"
+            >
+              <svg viewBox="0 0 20 20" fill="none" className="size-5 shrink-0 text-slate-300">
+                <rect x="3" y="4.5" width="14" height="12.5" rx="2.5" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M3 8.5h14M7 3v3M13 3v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                <path d="M6 11.5h2M6 14h2M9.5 11.5h2M9.5 14h2M13 11.5h1.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+              </svg>
+              {departDate ? (
+                <span className="flex items-center gap-2 text-lg font-medium text-white">
+                  {shortDate(departDate)}
+                  {tripType === "round_trip" && (
+                    <>
+                      <svg viewBox="0 0 20 20" fill="none" className="size-4 shrink-0 text-muted">
+                        <path
+                          d="M3 10h13m0 0l-4-4m4 4l-4 4"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                      <span className={returnDate ? "" : "text-muted/70"}>
+                        {returnDate ? shortDate(returnDate) : "Add return"}
+                      </span>
+                    </>
+                  )}
+                </span>
+              ) : (
+                <span className="text-lg font-medium text-muted/70">
+                  Add dates
+                </span>
+              )}
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate()}
+            disabled={!valid}
+            className="mt-3 flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-full bg-accent py-3.5 text-lg font-semibold text-white shadow-[0_0_24px_rgba(46,107,255,0.45)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <svg viewBox="0 0 20 20" fill="none" className="size-5">
+              <circle cx="9" cy="9" r="5.5" stroke="currentColor" strokeWidth="1.8" />
+              <path
+                d="M13.5 13.5L17 17"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+            </svg>
+            Search
+          </button>
+        </div>
+      )}
+
       <div
-        className={`flex w-full items-center rounded-full border border-card-border bg-pill/90 shadow-xl shadow-black/30 backdrop-blur-md ${compact ? "pr-2" : "pr-2.5"}`}
+        // relative z-20: the backdrop-blur below creates a stacking context,
+        // and the options row (its own blurred context, later in the DOM)
+        // would otherwise paint over the airport dropdowns.
+        className={`relative z-20 w-full items-center rounded-full border border-card-border bg-pill/90 shadow-xl shadow-black/30 backdrop-blur-md ${compact ? "flex pr-2" : "hidden animate-[productSearchIn_.55s_cubic-bezier(.22,1,.36,1)_both] pr-2.5 sm:flex"}`}
       >
         <AirportField
           label="From"
@@ -261,7 +378,7 @@ export default function SearchBar({
       </div>
 
       {!compact && (
-        <div className="mt-4 flex justify-center">
+        <div className="relative z-10 mt-4 flex animate-[productSearchActionsIn_.5s_.1s_cubic-bezier(.22,1,.36,1)_both] justify-center">
           <OptionsRow
             tripType={tripType}
             passengers={passengers}

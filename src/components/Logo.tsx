@@ -1,28 +1,43 @@
 import Link from "next/link";
 
-/** Own-drawn plane glyph + wordmark. */
+/**
+ * The Soar lockup, built from the real /logo.svg (403×141: bitmap plane +
+ * vector wordmark) shown at 33px tall, split into two crops so the plane
+ * can fly on hover: it exits up-and-right, wraps around, and lands again
+ * (extracted `logo-plane-loop` keyframe, 0.64s linear).
+ */
 export default function Logo({ withWordmark = true }: { withWordmark?: boolean }) {
+  const img =
+    "h-[33px] w-auto max-w-none [filter:brightness(0)_invert(1)] select-none";
+
   return (
     <Link
       href="/"
       aria-label="Soar home"
-      className="flex items-center gap-2.5 text-white transition hover:opacity-90"
+      className="logo group flex select-none items-center opacity-95 transition hover:opacity-100"
     >
-      <svg viewBox="0 0 32 32" fill="none" className="size-8">
-        <path
-          d="M3 21.5l25.5-11-8.5 13-3.5-6.5-7 2 3.5-4.5L3 21.5z"
-          fill="currentColor"
-        />
-        <path
-          d="M20 23.5l2.5 2"
-          stroke="currentColor"
-          strokeWidth="1.6"
-          strokeLinecap="round"
-        />
-      </svg>
-      {withWordmark && (
-        <span className="text-[22px] font-bold tracking-tight">Soar</span>
-      )}
+      <span className="logo-lockup relative block h-[33px] w-[99px] overflow-visible">
+        <span className="logo-plane-crop absolute left-0 top-0 h-[33px] w-11 overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.svg"
+            alt=""
+            draggable={false}
+            className={`${img} group-hover:animate-[logo-plane-loop_0.64s_linear_both]`}
+          />
+        </span>
+        {withWordmark && (
+          <span className="logo-word-crop absolute -top-0.5 left-12 h-[33px] w-[51px] overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.svg"
+              alt="Soar"
+              draggable={false}
+              className={`${img} -translate-x-11`}
+            />
+          </span>
+        )}
+      </span>
     </Link>
   );
 }

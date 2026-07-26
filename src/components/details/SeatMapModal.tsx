@@ -147,10 +147,10 @@ export default function SeatMapModal({
   return (
     <div className="fixed inset-0 z-[85] flex items-start justify-center overflow-y-auto p-4 pt-[6vh]">
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+        className="fixed inset-0 animate-[soar-backdrop-in_.24s_ease_both] bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div role="dialog" aria-modal="true" aria-label="Pick your seats" className="relative w-full max-w-2xl rounded-3xl border border-card-border bg-[#0a1122] p-6 shadow-2xl shadow-black/60">
+      <div role="dialog" aria-modal="true" aria-label="Pick your seats" className="relative w-full max-w-2xl animate-[soar-dialog-in_.26s_cubic-bezier(.22,1,.36,1)_both] rounded-3xl border border-card-border bg-[#0a1122] p-6 shadow-2xl shadow-black/60">
         <div className="flex items-center justify-between gap-4">
           <h2 className="text-xl font-bold text-white">Pick your seats</h2>
           <button
